@@ -95,9 +95,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate JWT token
       const token = generateToken(user.id, user.email);
-      
+        
       // Redirect to frontend with token as query parameter
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       console.log(`✅ Authentication successful for ${user.email}, redirecting to ${frontendUrl}/dashboard`);
       res.redirect(`${frontendUrl}/dashboard?token=${token}`);
     } catch (error: any) {
@@ -139,7 +139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/logout", (req, res) => {
     // With JWT, logout is handled on the client side by removing the token
     // No server-side session to destroy
-    res.json({ success: true });
+      res.json({ success: true });
   });
 
   // ===== PROSPECTS =====
@@ -1097,6 +1097,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       res.writeHead(200, { 'Content-Type': 'image/gif' });
       res.end(pixel);
+    }
+  });
+
+  // ===== DIAGNOSTIC ENDPOINTS =====
+  app.post("/api/diagnostic/create-defaults", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req)!;
+      console.log(`Creating default sequences and templates for user ${userId}`);
+      
+      // Create default templates and config
+      await createDefaultTemplates(userId);
+      await createDefaultUserConfig(userId);
+      
+      res.json({ 
+        success: true, 
+        message: 'Default sequences and templates created successfully' 
+      });
+    } catch (error: any) {
+      console.error('Error creating defaults:', error);
+      res.status(500).json({ error: error.message });
     }
   });
 
