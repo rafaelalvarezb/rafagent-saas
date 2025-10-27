@@ -1,5 +1,5 @@
 // Configuration for redirecting automation calls to persistent engine
-import { ENGINE_URL } from './config';
+import { ENGINE_URL } from '../config';
 
 export async function redirectToEngine(endpoint: string, options: RequestInit = {}) {
   const engineUrl = `${ENGINE_URL}${endpoint}`;
