@@ -40,6 +40,7 @@ import {
   Copy
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiCall } from "@/lib/api";
 
 interface Template {
   id: string;
@@ -86,7 +87,7 @@ export default function Templates() {
   const { data: sequences = [], isLoading: loadingSequences } = useQuery<Sequence[]>({
     queryKey: ["sequences"],
     queryFn: async () => {
-      const response = await fetch("/api/sequences");
+      const response = await apiCall("/sequences");
       if (!response.ok) throw new Error("Failed to fetch sequences");
       return response.json();
     },
@@ -96,7 +97,7 @@ export default function Templates() {
   const { data: allTemplates = [], isLoading: loadingTemplates } = useQuery<Template[]>({
     queryKey: ["templates"],
     queryFn: async () => {
-      const response = await fetch("/api/templates");
+      const response = await apiCall("/templates");
       if (!response.ok) throw new Error("Failed to fetch templates");
       return response.json();
     },
@@ -105,9 +106,8 @@ export default function Templates() {
   // Create sequence mutation
   const createSequenceMutation = useMutation({
     mutationFn: async (name: string) => {
-      const response = await fetch("/api/sequences", {
+      const response = await apiCall("/sequences", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
       if (!response.ok) throw new Error("Failed to create sequence");
@@ -128,9 +128,8 @@ export default function Templates() {
   // Update sequence mutation
   const updateSequenceMutation = useMutation({
     mutationFn: async ({ id, ...data }: Partial<Sequence> & { id: string }) => {
-      const response = await fetch(`/api/sequences/${id}`, {
+      const response = await apiCall(`/sequences/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) throw new Error("Failed to update sequence");
@@ -150,7 +149,7 @@ export default function Templates() {
   // Delete sequence mutation
   const deleteSequenceMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/sequences/${id}`, {
+      const response = await apiCall(`/sequences/${id}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -175,12 +174,37 @@ export default function Templates() {
     },
   });
 
+  // Create default sequences mutation
+  const createDefaultsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiCall("/diagnostic/create-defaults", {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Failed to create default sequences");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      queryClient.invalidateQueries({ queryKey: ["templates"] });
+      toast({
+        title: "Success!",
+        description: "Default sequences created successfully!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create default sequences",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Update template mutation
   const updateTemplateMutation = useMutation({
     mutationFn: async ({ id, ...data }: Partial<Template> & { id: string }) => {
-      const response = await fetch(`/api/templates/${id}`, {
+      const response = await apiCall(`/templates/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) throw new Error("Failed to update template");
@@ -434,8 +458,28 @@ export default function Templates() {
         })}
       </div>
 
-      {/* Create New Sequence Button */}
-      <div className="flex justify-start pt-4">
+      {/* Action Buttons */}
+      <div className="flex justify-start pt-4 gap-4">
+        {sequences.length === 0 && (
+          <Button
+            onClick={() => createDefaultsMutation.mutate()}
+            disabled={createDefaultsMutation.isPending}
+            size="lg"
+            className="bg-green-600 hover:bg-green-700 text-base px-6 py-5 shadow-md hover:shadow-lg transition-all"
+          >
+            {createDefaultsMutation.isPending ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Plus className="h-5 w-5 mr-2" />
+                Create Standard Sequence
+              </>
+            )}
+          </Button>
+        )}
         <Button
           onClick={() => setIsCreateSequenceOpen(true)}
           size="lg"
