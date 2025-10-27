@@ -24,7 +24,7 @@ export function useAuth() {
   const { data, isLoading, error } = useQuery<AuthStatus>({
     queryKey: ['auth-status'],
     queryFn: async () => {
-      const response = await apiCall('/api/auth/status');
+      const response = await apiCall('/auth/status');
       if (!response.ok) {
         throw new Error('Failed to check auth status');
       }
@@ -36,12 +36,12 @@ export function useAuth() {
 
   const login = () => {
     // Redirect to Railway backend for OAuth
-    window.location.href = `${API_BASE_URL}/api/auth/google/redirect`;
+    window.location.href = `${API_BASE_URL}/auth/google/redirect`;
   };
 
   const logout = async () => {
     try {
-      await apiCall('/api/auth/logout', { method: 'POST' });
+      await apiCall('/auth/logout', { method: 'POST' });
       queryClient.setQueryData(['auth-status'], { authenticated: false });
       setLocation('/login');
     } catch (error) {
