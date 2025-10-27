@@ -10,8 +10,6 @@ import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { runAgent } from "./automation/agent";
 import { createDefaultTemplates, createDefaultUserConfig } from "./automation/defaultTemplates";
 import { isWithinWorkingHours, getWorkingHoursFromConfig, debugWorkingHours } from "./utils/workingHours";
-import { SERVER_CONFIG } from "./config";
-import { redirectToEngine } from "./utils/engineRedirect";
 import { ensureCurrentUserDefaults } from "./utils/ensureDefaults";
 
 /**
@@ -916,17 +914,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/agent/run", requireAuth, async (req, res) => {
     try {
       const userId = getCurrentUserId(req)!;
-      
-      // In hybrid mode, redirect to persistent engine
-      if (SERVER_CONFIG.IS_HYBRID_MODE) {
-        const response = await redirectToEngine(`/api/agent/run/${userId}`, {
-          method: 'POST'
-        });
-        const result = await response.json();
-        return res.json(result);
-      }
-      
-      // Fallback to local agent (development mode)
       const result = await runAgent(userId);
       res.json(result);
     } catch (error: any) {
@@ -937,16 +924,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== ENGINE STATUS ENDPOINTS =====
   app.get("/api/engine/status", async (req, res) => {
     try {
-      if (SERVER_CONFIG.IS_HYBRID_MODE) {
-        const response = await redirectToEngine('/api/status');
-        const result = await response.json();
-        return res.json(result);
-      }
+      const users = await storage.getAllUsers();
+      const activeUsers = users.filter(u => u.googleAccessToken);
       
-      // Fallback for development mode
       res.json({
-        status: 'development',
-        message: 'Running in development mode - engine not available'
+        status: "running",
+        activeUsers: activeUsers.length,
+        totalUsers: users.length,
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -954,22 +940,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/engine/health", async (req, res) => {
-    try {
-      if (SERVER_CONFIG.IS_HYBRID_MODE) {
-        const response = await redirectToEngine('/health');
-        const result = await response.json();
-        return res.json(result);
-      }
-      
-      // Fallback for development mode
-      res.json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        service: 'rafagent-frontend-dev'
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      service: 'rafagent-engine'
+    });
   });
 
   // ===== SEQUENCES =====
