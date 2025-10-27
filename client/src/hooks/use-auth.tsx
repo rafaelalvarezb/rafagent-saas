@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
+import { apiCall, API_BASE_URL } from '@/lib/api';
 
 interface User {
   id: string;
@@ -23,7 +24,7 @@ export function useAuth() {
   const { data, isLoading, error } = useQuery<AuthStatus>({
     queryKey: ['auth-status'],
     queryFn: async () => {
-      const response = await fetch('/api/auth/status');
+      const response = await apiCall('/api/auth/status');
       if (!response.ok) {
         throw new Error('Failed to check auth status');
       }
@@ -34,13 +35,13 @@ export function useAuth() {
   });
 
   const login = () => {
-    // Prefer server-side redirect to avoid CORS/adblockers interfering
-    window.location.href = '/api/auth/google/redirect';
+    // Redirect to Railway backend for OAuth
+    window.location.href = `${API_BASE_URL}/api/auth/google/redirect`;
   };
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await apiCall('/api/auth/logout', { method: 'POST' });
       queryClient.setQueryData(['auth-status'], { authenticated: false });
       setLocation('/login');
     } catch (error) {
