@@ -372,6 +372,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const userId = user.id;
       const templates = await storage.getTemplatesByUser(userId);
+      
+      // Add cache-busting headers
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+      
       res.json(templates);
     } catch (error: any) {
       console.error('Error fetching templates:', error);
@@ -974,9 +982,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const userId = user.id;
-      const sequences = await storage.getSequencesByUser(userId);
+      let sequences = await storage.getSequencesByUser(userId);
       
-      // If no sequences exist, create defaults
+      // Always ensure user has at least one sequence
       if (sequences.length === 0) {
         console.log(`No sequences found for user ${user.email}, creating defaults...`);
         try {
@@ -984,14 +992,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await createDefaultUserConfig(userId);
           
           // Fetch sequences again after creating defaults
-          const newSequences = await storage.getSequencesByUser(userId);
-          console.log(`Created ${newSequences.length} sequences for user ${user.email}`);
-          return res.json(newSequences);
+          sequences = await storage.getSequencesByUser(userId);
+          console.log(`Created ${sequences.length} sequences for user ${user.email}`);
         } catch (error) {
           console.error('Error creating default sequences:', error);
           return res.json([]);
         }
       }
+      
+      // Add cache-busting headers
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
       
       res.json(sequences);
     } catch (error: any) {
