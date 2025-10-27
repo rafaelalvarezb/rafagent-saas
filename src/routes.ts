@@ -363,12 +363,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== TEMPLATES =====
-  app.get("/api/templates", requireAuth, async (req, res) => {
+  app.get("/api/templates", optionalAuth, async (req, res) => {
     try {
-      const userId = getCurrentUserId(req)!;
+      const user = (req as any).user;
+      if (!user) {
+        return res.json([]);
+      }
+      
+      const userId = user.id;
       const templates = await storage.getTemplatesByUser(userId);
       res.json(templates);
     } catch (error: any) {
+      console.error('Error fetching templates:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -960,12 +966,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== SEQUENCES =====
-  app.get("/api/sequences", requireAuth, async (req, res) => {
+  app.get("/api/sequences", optionalAuth, async (req, res) => {
     try {
-      const userId = getCurrentUserId(req)!;
+      const user = (req as any).user;
+      if (!user) {
+        return res.json([]);
+      }
+      
+      const userId = user.id;
       const sequences = await storage.getSequencesByUser(userId);
+      
+      // If no sequences exist, create defaults
+      if (sequences.length === 0) {
+        console.log(`No sequences found for user ${user.email}, creating defaults...`);
+        await createDefaultTemplates(userId);
+        await createDefaultUserConfig(userId);
+        
+        // Fetch sequences again after creating defaults
+        const newSequences = await storage.getSequencesByUser(userId);
+        return res.json(newSequences);
+      }
+      
       res.json(sequences);
     } catch (error: any) {
+      console.error('Error fetching sequences:', error);
       res.status(500).json({ error: error.message });
     }
   });
