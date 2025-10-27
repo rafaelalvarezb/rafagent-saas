@@ -96,9 +96,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Redirect to frontend
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-      res.redirect(`${frontendUrl}/dashboard`);
+      // Save session before redirect (critical for cross-origin)
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          return res.status(500).send('Failed to create session');
+        }
+        
+        // Redirect to frontend after session is saved
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        console.log(`✅ Session created for ${user.email}, redirecting to ${frontendUrl}/dashboard`);
+        res.redirect(`${frontendUrl}/dashboard`);
+      });
     } catch (error: any) {
       console.error('OAuth callback error:', error);
       res.status(500).send(`Authentication failed: ${error.message}`);
