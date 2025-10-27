@@ -979,12 +979,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If no sequences exist, create defaults
       if (sequences.length === 0) {
         console.log(`No sequences found for user ${user.email}, creating defaults...`);
-        await createDefaultTemplates(userId);
-        await createDefaultUserConfig(userId);
-        
-        // Fetch sequences again after creating defaults
-        const newSequences = await storage.getSequencesByUser(userId);
-        return res.json(newSequences);
+        try {
+          await createDefaultTemplates(userId);
+          await createDefaultUserConfig(userId);
+          
+          // Fetch sequences again after creating defaults
+          const newSequences = await storage.getSequencesByUser(userId);
+          console.log(`Created ${newSequences.length} sequences for user ${user.email}`);
+          return res.json(newSequences);
+        } catch (error) {
+          console.error('Error creating default sequences:', error);
+          return res.json([]);
+        }
       }
       
       res.json(sequences);
