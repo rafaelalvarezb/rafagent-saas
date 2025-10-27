@@ -48,3 +48,4 @@ coverage/
 # Migrations (opcional - descomentar si no quieres versionar migraciones)
 # migrations/
 
+rafagent-engine/

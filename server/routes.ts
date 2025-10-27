@@ -10,6 +10,9 @@ import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { runAgent } from "./automation/agent";
 import { createDefaultTemplates, createDefaultUserConfig } from "./automation/defaultTemplates";
 import { isWithinWorkingHours, getWorkingHoursFromConfig, debugWorkingHours } from "./utils/workingHours";
+import { SERVER_CONFIG } from "./config";
+import { redirectToEngine } from "./utils/engineRedirect";
+import { ensureCurrentUserDefaults } from "./utils/ensureDefaults";
 
 /**
  * Get template name for touchpoint number
@@ -114,6 +117,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.session.destroy(() => {});
         return res.json({ authenticated: false });
       }
+
+      // Ensure user has default sequences and config
+      await ensureCurrentUserDefaults(user.id);
 
       res.json({
         authenticated: true,
@@ -910,8 +916,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/agent/run", requireAuth, async (req, res) => {
     try {
       const userId = getCurrentUserId(req)!;
+      
+      // In hybrid mode, redirect to persistent engine
+      if (SERVER_CONFIG.IS_HYBRID_MODE) {
+        const response = await redirectToEngine(`/api/agent/run/${userId}`, {
+          method: 'POST'
+        });
+        const result = await response.json();
+        return res.json(result);
+      }
+      
+      // Fallback to local agent (development mode)
       const result = await runAgent(userId);
       res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== ENGINE STATUS ENDPOINTS =====
+  app.get("/api/engine/status", async (req, res) => {
+    try {
+      if (SERVER_CONFIG.IS_HYBRID_MODE) {
+        const response = await redirectToEngine('/api/status');
+        const result = await response.json();
+        return res.json(result);
+      }
+      
+      // Fallback for development mode
+      res.json({
+        status: 'development',
+        message: 'Running in development mode - engine not available'
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/engine/health", async (req, res) => {
+    try {
+      if (SERVER_CONFIG.IS_HYBRID_MODE) {
+        const response = await redirectToEngine('/health');
+        const result = await response.json();
+        return res.json(result);
+      }
+      
+      // Fallback for development mode
+      res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        service: 'rafagent-frontend-dev'
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

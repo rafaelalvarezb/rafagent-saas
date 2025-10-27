@@ -1,4 +1,5 @@
 import { DashboardStats } from "@/components/DashboardStats";
+import { EngineStatusCard } from "@/components/EngineStatusCard";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +61,9 @@ export default function Dashboard() {
       </div>
 
       <DashboardStats />
+
+      {/* Engine Status Card */}
+      <EngineStatusCard />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
