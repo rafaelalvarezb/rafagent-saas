@@ -1,66 +1,62 @@
 /**
- * RafAgent Persistent Automation Engine
+ * RafAgent Persistent Backend Server
  * 
- * This is the persistent server that handles:
+ * This server handles:
+ * - All API routes (authentication, prospects, templates, etc.)
  * - Automated email sequences
  * - AI response analysis
  * - Meeting scheduling
  * - Cron jobs and schedulers
  * 
- * Runs continuously on Railway/Render to avoid serverless timeout limits
+ * Runs continuously on Railway
  */
 
 import "dotenv/config";
 import express from "express";
+import { registerRoutes } from "./routes";
+import { sessionMiddleware } from "./middleware/session";
 import { startAgentScheduler } from "./automation/scheduler";
 import { startReminderScheduler } from "./automation/reminderScheduler";
 import { storage } from "./storage";
 
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-// Health check endpoint
-app.get("/health", (req, res) => {
-  res.json({ 
-    status: "healthy", 
-    timestamp: new Date().toISOString(),
-    service: "rafagent-engine"
-  });
-});
-
-// API endpoint to manually trigger agent run for a user
-app.post("/api/agent/run/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    // Import here to avoid circular dependencies
-    const { runAgent } = await import("./automation/agent");
-    
-    const result = await runAgent(userId);
-    res.json({ success: true, result });
-  } catch (error: any) {
-    console.error("Manual agent run error:", error);
-    res.status(500).json({ error: error.message });
+// CORS configuration for Vercel frontend
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    'https://rafagent-saas.vercel.app',
+    'https://rafagent-saas-git-main-rafael-alvarezs-projects-43d604b9.vercel.app',
+    'https://rafagent-saas-ngni33pe8-rafael-alvarezs-projects-43d604b9.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ];
+  
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
   }
+  
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
 });
 
-// API endpoint to get engine status
-app.get("/api/status", async (req, res) => {
-  try {
-    const users = await storage.getAllUsers();
-    const activeUsers = users.filter(u => u.googleAccessToken);
-    
-    res.json({
-      status: "running",
-      activeUsers: activeUsers.length,
-      totalUsers: users.length,
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString()
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Session management
+app.use(sessionMiddleware);
+
+// Register all API routes (auth, prospects, templates, etc.)
+async function setupRoutes() {
+  const server = await registerRoutes(app);
+  return server;
+}
 
 // Start the automation engine
 async function startEngine() {
@@ -86,10 +82,16 @@ async function startEngine() {
 
 // Start the server
 const PORT = parseInt(process.env.PORT || '3001', 10);
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🌐 RafAgent Engine server running on port ${PORT}`);
-  startEngine();
-});
+
+(async () => {
+  // Setup all routes first
+  const server = await setupRoutes();
+  
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`🌐 RafAgent Backend server running on port ${PORT}`);
+    startEngine();
+  });
+})();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
