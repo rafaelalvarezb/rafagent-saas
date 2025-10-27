@@ -1,11 +1,11 @@
 // API Configuration for Production
-// All API calls go to Railway backend
+// All API calls go through Vercel proxy (same-origin)
 
-// In production, use Railway backend. In development, use local server.
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.MODE === 'production' 
-    ? 'https://rafagent-engine-production.up.railway.app'
-    : 'http://localhost:3000');
+// In production, use relative URLs (Vercel proxy handles it)
+// In development, use Railway backend directly
+export const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? '' // Empty string for relative URLs in production
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3000');
 
 // Helper to make API calls with credentials
 export async function apiCall(endpoint: string, options: RequestInit = {}) {
