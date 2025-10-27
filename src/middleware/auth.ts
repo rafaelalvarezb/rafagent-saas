@@ -1,45 +1,31 @@
 import type { Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
+import { authenticateJWT } from './jwt';
 
 /**
- * Middleware to check if user is authenticated
+ * Middleware to check if user is authenticated using JWT
  */
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-
-  try {
-    const user = await storage.getUser(req.session.userId);
-    if (!user) {
-      req.session.destroy(() => {});
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    // Attach user to request for convenience
-    (req as any).user = user;
-    next();
-  } catch (error) {
-    console.error('Auth middleware error:', error);
-    res.status(500).json({ error: 'Authentication error' });
-  }
+  return authenticateJWT(req, res, next);
 }
 
 /**
- * Get current user from session
+ * Get current user from JWT token
  */
 export async function getCurrentUser(req: Request) {
-  if (!req.session.userId) {
+  const user = (req as any).user;
+  if (!user) {
     return null;
   }
   
-  return await storage.getUser(req.session.userId);
+  return await storage.getUser(user.id);
 }
 
 /**
- * Get current user ID from session
+ * Get current user ID from JWT token
  */
 export function getCurrentUserId(req: Request): string | null {
-  return req.session.userId || null;
+  const user = (req as any).user;
+  return user?.id || null;
 }
 

@@ -7,6 +7,7 @@ import { classifyResponse, replaceTemplateVariables } from "./services/ai";
 import { getAvailableSlots, findNextAvailableSlot, scheduleMeeting } from "./services/calendar";
 import { getAuthUrl, getTokensFromCode, getUserInfo } from "./auth";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
+import { generateToken, authenticateJWT, optionalAuth } from "./middleware/jwt";
 import { runAgent } from "./automation/agent";
 import { createDefaultTemplates, createDefaultUserConfig } from "./automation/defaultTemplates";
 import { isWithinWorkingHours, getWorkingHoursFromConfig, debugWorkingHours } from "./utils/workingHours";
@@ -81,10 +82,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         googleTokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined
       });
 
-      // Create session
-      req.session.userId = user.id;
-      req.session.userEmail = user.email;
-
       // If new user, create default templates and config
       if (isNewUser) {
         try {
@@ -96,46 +93,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Save session before redirect (critical for cross-origin)
-      req.session.save((err) => {
-        if (err) {
-          console.error('Session save error:', err);
-          return res.status(500).send('Failed to create session');
-        }
-        
-        // Redirect to frontend after session is saved
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        console.log(`✅ Session created for ${user.email}, redirecting to ${frontendUrl}/dashboard`);
-        res.redirect(`${frontendUrl}/dashboard`);
-      });
+      // Generate JWT token
+      const token = generateToken(user.id, user.email);
+      
+      // Redirect to frontend with token as query parameter
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      console.log(`✅ Authentication successful for ${user.email}, redirecting to ${frontendUrl}/dashboard`);
+      res.redirect(`${frontendUrl}/dashboard?token=${token}`);
     } catch (error: any) {
       console.error('OAuth callback error:', error);
       res.status(500).send(`Authentication failed: ${error.message}`);
     }
   });
 
-  app.get("/api/auth/status", async (req, res) => {
-    if (!req.session.userId) {
+  app.get("/api/auth/status", optionalAuth, async (req, res) => {
+    const user = (req as any).user;
+    
+    if (!user) {
       return res.json({ authenticated: false });
     }
 
     try {
-      const user = await storage.getUser(req.session.userId);
-      if (!user) {
-        req.session.destroy(() => {});
+      const userData = await storage.getUser(user.id);
+      if (!userData) {
         return res.json({ authenticated: false });
       }
 
       // Ensure user has default sequences and config
-      await ensureCurrentUserDefaults(user.id);
+      await ensureCurrentUserDefaults(userData.id);
 
       res.json({
         authenticated: true,
         user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          timezone: user.timezone
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          timezone: userData.timezone
         }
       });
     } catch (error) {
@@ -144,12 +137,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to logout' });
-      }
-      res.json({ success: true });
-    });
+    // With JWT, logout is handled on the client side by removing the token
+    // No server-side session to destroy
+    res.json({ success: true });
   });
 
   // ===== PROSPECTS =====
