@@ -97,7 +97,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Redirect to frontend
-      res.redirect('/');
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      res.redirect(`${frontendUrl}/dashboard`);
     } catch (error: any) {
       console.error('OAuth callback error:', error);
       res.status(500).send(`Authentication failed: ${error.message}`);
