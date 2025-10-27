@@ -1,10 +1,10 @@
 // API Configuration for Production
-// All API calls go through Vercel proxy (same-origin)
+// All API calls go through Vercel rewrites (same-origin)
 
-// In production, use relative URLs (Vercel proxy handles it)
+// In production, use /api prefix (Vercel rewrites handle it)
 // In development, use Railway backend directly
 export const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? '' // Empty string for relative URLs in production
+  ? '/api' // Vercel rewrites /api/* to Railway
   : (import.meta.env.VITE_API_URL || 'http://localhost:3000');
 
 // Helper to make API calls with credentials
