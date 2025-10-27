@@ -1,0 +1,30 @@
+# ===================================
+# RAFAGENT - Variables de Entorno
+# ===================================
+# Crea un archivo llamado .env en la raíz y copia este contenido
+
+# === Base de Datos PostgreSQL ===
+# Obtén esta URL de Neon.tech o Supabase
+# Ejemplo: postgresql://usuario:password@host.region.neon.tech/database?sslmode=require
+DATABASE_URL=
+
+# === Gemini AI ===
+# Tu API Key de Google Gemini AI
+# Obtén una gratis en: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=
+
+# === Google OAuth (Gmail & Calendar) ===
+# Credenciales de Google Cloud Console
+# Guía completa en SETUP_GUIDE.md
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
+
+# === Configuración del Servidor ===
+PORT=3000
+NODE_ENV=development
+
+# === Session Secret ===
+# Genera uno aleatorio con: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+SESSION_SECRET=
+

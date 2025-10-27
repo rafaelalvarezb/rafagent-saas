@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1760917502451,
+      "tag": "0000_funny_mister_sinister",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1761093462557,
+      "tag": "0001_mixed_gideon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1761096802677,
+      "tag": "0002_pink_glorian",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1761191777117,
+      "tag": "0003_common_carnage",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1761370975386,
+      "tag": "0004_wet_smiling_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1761420000000,
+      "tag": "0005_add_last_message_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1761430000000,
+      "tag": "0006_multiple_sequences_and_analytics",
+      "breakpoints": true
+    }
+  ]
+}

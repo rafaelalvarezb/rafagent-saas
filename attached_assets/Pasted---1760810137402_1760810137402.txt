@@ -1,0 +1,87 @@
+// ===================================================================================================
+// VERSION 10 - AI SALES AGENT (SHELL SCRIPT - FINAL)
+// This script connects to the central RafAgentLibrary and includes robust error handling for the UI, sends emails in HTML and with signature.
+// ===================================================================================================
+
+/**
+ * Creates the custom menu. Runs when the sheet is opened.
+ * This version is built to be more resilient.
+ */
+function onOpen() {
+  // Primero, intenta crear el menú. Esta es la parte más crítica.
+  try {
+    SpreadsheetApp.getUi()
+        .createMenu('🤖 AI Agent')
+        .addItem('Execute AI Agent Now ▶️', 'manualAgentExecution')
+        .addItem('Process Contacts from Zoominfo 📩', 'processContactsFromGmail')
+        .addToUi(); // .addToUi() confirma la creación del menú.
+  } catch (e) {
+    // Si la creación del menú falla por alguna razón, mostrará una alerta.
+    SpreadsheetApp.getUi().alert('A critical error occurred while creating the menu: ' + e.message);
+  }
+  
+  // De forma separada, intenta actualizar la versión. Si esto falla, no impedirá que el menú aparezca.
+  try {
+    updateVersionDisplay();
+  } catch(e) {
+    // Si la comunicación con la librería falla, ahora verás el error exacto en un pop-up.
+    SpreadsheetApp.getUi().alert('Could not update version from the library: ' + e.message);
+  }
+}
+
+/**
+ * Calls the library's onEditHandler function when a cell is edited.
+ */
+function onEditHandler(e) {
+  RafAgentLibrary.onEditHandler(e);
+}
+
+/**
+ * Calls the library's setup wizard.
+ */
+function setupWizard() {
+  RafAgentLibrary.setupWizard();
+}
+
+/**
+ * Calls the library's manual execution function.
+ */
+function manualAgentExecution() {
+  RafAgentLibrary.manualAgentExecution();
+}
+
+/**
+ * Calls the library's main trigger handler.
+ */
+function triggerHandler() {
+  RafAgentLibrary.triggerHandler();
+}
+
+/**
+ * Calls the library's contact processing function.
+ */
+function processContactsFromGmail() {
+  RafAgentLibrary.processContactsFromGmail();
+}
+
+/**
+ * Gets the current version from the library and writes it to the Configuration sheet.
+ */
+function updateVersionDisplay() {
+  try {
+    const version = RafAgentLibrary.getVersion();
+    const configSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Configuration");
+    if (configSheet) {
+        configSheet.getRange("C1").setValue(`Version: ${version}`); // <-- Celda actualizada a C1
+    }
+  } catch(e) {
+    Logger.log("Could not update version display. This can happen if the library is being updated.");
+  }
+}
+
+/**
+ * Llama a la función de diagnóstico de la librería.
+ */
+function runSignatureTest() {
+  RafAgentLibrary.testSignature();
+}

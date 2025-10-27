@@ -1,0 +1,89 @@
+RAFAGENT Version 11.0 Capabilities
+1. Core Automation Engine
+The agent operates on two automated cycles, respecting your time and preferences.
+
+Timed Automation: The agent automatically runs on a set schedule. It calls the triggerHandler function, which checks the AGENT_FREQUENCY_HOURS (e.g., 0.5 for 30 minutes) in your Configuration tab. It only runs if the set time has passed since its last execution.
+
+Manual Override: You can force the agent to run at any time by clicking the Execute AI Agent Now ▶️ button in the menu.
+
+Workday Protection: The agent will only send emails or schedule meetings during your specified work hours (defined by SEARCH_START_TIME and SEARCH_END_TIME) and only on weekdays (Monday-Friday), based on your spreadsheet's local timezone.
+
+2. Professional Email Outreach & Sequencing
+The agent manages the entire email sequence from start to finish.
+
+Sends Initial Email: When a prospect's Send Sequence box is checked, the onEditHandler function instantly triggers sendInitialEmail to send the first touchpoint.
+
+Sends Follow-ups: The reviewDailyFollowUps function automatically triggers sendFollowUpEmail based on the DAYS_BETWEEN_FOLLOWUPS setting (e.g., every 4 days).
+
+Stops Automatically: The sequence stops after the number of emails specified in NUMBER_OF_TOUCHPOINTS is reached.
+
+Professional Formatting: All emails are sent as HTML, removing any unwanted margins and preserving the look of a normal Gmail message.
+
+Automatic Gmail Signature: The agent calls getGmailSignature to automatically append your default Gmail signature to the end of every email, ensuring a professional touch.
+
+Threaded Follow-ups: Follow-up emails are sent as a forward (using firstMessage.forward()) to keep the entire conversation in a single, clean thread.
+
+3. AI-Powered Response Analysis
+This is the "brain" of the agent. When a reply is detected, the analyzeResponse function is triggered.
+
+AI Classification: It sends the email text to the Gemini API (callGeminiApi) to be classified into one of several categories.
+
+Bounce Detection: It has two layers of protection. It first checks if the sender is mailer-daemon@ or postmaster@. If the AI also classifies a reply as BOUNCE, it sets the status to Bounce - Invalid Email and stops all future contact.
+
+Out of Office (OOO) Handling: If the AI detects an OOO or vacation reply, it sets the status to Contact is OOO, manual FUP and stops the sequence, allowing you to manually re-engage later.
+
+Referral Handling: If the prospect refers you to a new contact (e.g., "talk to Ana at ana@email.com"), the AI detects this, extracts the new email, sets the original prospect's status to 🤝 Referred to..., and automatically creates a new row at the bottom of your Prospects sheet for the new contact.
+
+4. Intelligent Meeting Scheduling
+When the AI classifies a response as INTERESTED, it triggers the scheduleMeeting function.
+
+Date/Time Extraction: If the prospect suggested a specific day or time (e.g., "next Tuesday at 3pm"), the AI extracts this, and the agent will try to book that specific slot first.
+
+Smart Scheduling (No Time Suggested): If the prospect gives a generic "yes" (like "I'm interested"), the agent:
+
+Waits for a 24-hour "preparation" buffer.
+
+Rounds the resulting time to the next "clean" 30-minute slot (e.g., 2:17 PM becomes 2:30 PM).
+
+Searches for the next available slot in your calendar, respecting your work hours.
+
+Timezone-Aware: All scheduling is based on the user's local timezone as set in their Google Sheet, so a user in Dublin can set their hours as 9:00-17:00 and it will work correctly.
+
+Calendar-Aware: The agent reads your primary Google Calendar and will only schedule in a slot where you are truly free (it respects events you have accepted with "Yes" or that you own).
+
+5. Universal Variables & Customization
+To make outreach highly personal, the agent uses a universal replacer function.
+
+Variables: The agent will find and replace the following 5 placeholders:
+
+${contactName} (from Prospects sheet)
+
+${companyName} (from Prospects sheet)
+
+${contactTitle} (from Prospects sheet)
+
+${industry} (from Prospects sheet)
+
+${YOUR_NAME} (from Configuration sheet)
+
+Universal Use: These variables work everywhere:
+
+Email Subject (in Templates)
+
+Email Body (in Templates)
+
+MEET_TITLE (in Configuration)
+
+MEET_DESCRIPTION (in Configuration)
+
+6. User & Prospect Management
+Instant Pause/Resume ("The Hand-Brake"): The onEditHandler function provides instant visual feedback. Unchecking the Send Sequence box immediately changes the status to 🚫 Paused (Manual Stop). Re-checking it changes the status back to Following up.
+
+Automated Prospect Importing: The processContactsFromGmail function runs on a 1-minute automatic trigger. It scans Gmail for any email with the Process-Prospect label, parses the contact info, and automatically adds the contacts to new rows in the Prospects sheet.
+
+7. Scalability & Setup
+Central Library Model: All the logic above lives in the central AI Agent Core Library, allowing you to deploy updates and bug fixes to all users at once just by saving your code.
+
+One-Click Setup: The setupWizard function completely automates the new-user setup process. It prompts for name/title, creates all 3 necessary triggers, and creates the Gmail label.
+
+Interactive UI: The SetupSidebar.html provides a final, user-friendly pop-up to guide users through the one-time authorization and the manual step of creating their Gmail filter.
