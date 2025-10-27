@@ -60,6 +60,13 @@ function App() {
         <TooltipProvider>
           <Switch>
             <Route path="/login" component={Login} />
+            <Route path="/dashboard">
+              <RequireAuth>
+                <AuthenticatedLayout>
+                  <Dashboard />
+                </AuthenticatedLayout>
+              </RequireAuth>
+            </Route>
             <Route path="/">
               <RequireAuth>
                 <AuthenticatedLayout>
