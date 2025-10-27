@@ -119,8 +119,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ authenticated: false });
       }
 
-      // Ensure user has default sequences and config
-      await ensureCurrentUserDefaults(userData.id);
+      // Always ensure user has default sequences and config
+      try {
+        await ensureCurrentUserDefaults(userData.id);
+        
+        // Also create default sequences if none exist
+        const sequences = await storage.getSequencesByUser(userData.id);
+        if (sequences.length === 0) {
+          console.log(`No sequences found for user ${userData.email}, creating defaults...`);
+          await createDefaultTemplates(userData.id);
+          await createDefaultUserConfig(userData.id);
+        }
+      } catch (error) {
+        console.error('Error ensuring defaults for user:', error);
+      }
 
       res.json({
         authenticated: true,
