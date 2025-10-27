@@ -56,14 +56,14 @@ https://rafagent-saas.vercel.app
 
 ```
 Google OAuth:
-- Client ID: 335742457345-edqurv1l5npberj763tlvg1k0r1c1d1s.apps.googleusercontent.com
-- Client Secret: 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
+- Client ID: [CONFIGURADO EN VARIABLES DE ENTORNO]
+- Client Secret: [CONFIGURADO EN VARIABLES DE ENTORNO]
 
 Gemini AI:
-- API Key: AIzaSyBZDLPPhECzNrPBzGWjRlm0NU3i1cjiKlY
+- API Key: [CONFIGURADO EN VARIABLES DE ENTORNO]
 
 Neon Database:
-- Connection: postgresql://neondb_owner:npg_jSBEw6LTN7Yu@ep-autumn-recipe-aeis6a3s-pooler...
+- Connection: [CONFIGURADO EN VARIABLES DE ENTORNO]
 
 GitHub:
 - Usuario: rafaelalvarezb

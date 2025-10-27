@@ -39,32 +39,31 @@ https://console.neon.tech/
 Proyecto: rafagent-saas
 URL: https://console.cloud.google.com/
 
-Client ID: 335742457345-edqurv1l5npberj763tlvg1k0r1c1d1s.apps.googleusercontent.com
-Client Secret: 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
+Client ID: [CONFIGURADO EN VARIABLES DE ENTORNO]
+Client Secret: [CONFIGURADO EN VARIABLES DE ENTORNO]
 ```
 
 ### Neon Database
 ```
 Proyecto: rafagent-production
-Connection String:
-postgresql://neondb_owner:npg_jSBEw6LTN7Yu@ep-autumn-recipe-aeis6a3s-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require
+Connection String: [CONFIGURADO EN VARIABLES DE ENTORNO]
 ```
 
 ### Gemini AI
 ```
-API Key: AIzaSyBZDLPPhECzNrPBzGWjRlm0NU3i1cjiKlY
+API Key: [CONFIGURADO EN VARIABLES DE ENTORNO]
 ```
 
 ### Session Secret
 ```
-aa8e9a32bf015cffb2b21a6ff55afc96357aacccfbd22420c749944813f2d4cb
+Session Secret: [CONFIGURADO EN VARIABLES DE ENTORNO]
 ```
 
 ### GitHub
 ```
 Usuario: rafaelalvarezb
 Email: rafaelalvrzb@gmail.com
-Token: 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
+Token: [CONFIGURADO EN VARIABLES DE ENTORNO]
 
 Repos:
 - Frontend: https://github.com/rafaelalvarezb/rafagent-saas
