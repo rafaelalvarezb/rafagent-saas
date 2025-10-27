@@ -85,7 +85,7 @@ async function startEngine() {
 }
 
 // Start the server
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🌐 RafAgent Engine server running on port ${PORT}`);
   startEngine();

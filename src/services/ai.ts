@@ -4,6 +4,7 @@ interface ClassificationResult {
   category: 'INTERESTED' | 'NOT_INTERESTED' | 'REFERRAL' | 'WRONG_EMAIL' | 'OUT_OF_OFFICE' | 'GENERAL_QUESTION' | 'BOUNCE' | 'REVIEW_ANSWER';
   suggestedDays?: string[];
   suggestedTime?: string;
+  suggestedTimezone?: string;
   suggestedWeek?: string;
   referredEmail?: string;
 }
