@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { storage } from '../storage';
+import { storage } from './storage';
 
 /**
  * Middleware to check if user is authenticated
