@@ -1310,6 +1310,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // TEMPORAL: Endpoint para limpiar duplicados sin autenticación
+  app.post("/api/temp/cleanup-duplicates", async (req, res) => {
+    try {
+      console.log("🧹 Iniciando limpieza temporal de templates duplicados...");
+      
+      // Obtener todos los usuarios
+      const users = await storage.getAllUsers();
+      console.log(`👥 Encontrados ${users.length} usuarios`);
+      
+      let totalCleaned = 0;
+      
+      for (const user of users) {
+        console.log(`\n👤 Procesando usuario: ${user.email}`);
+        
+        // Obtener todas las secuencias del usuario
+        const userSequences = await storage.getSequencesByUser(user.id);
+        console.log(`  📋 Secuencias encontradas: ${userSequences.length}`);
+        
+        for (const sequence of userSequences) {
+          console.log(`  🔄 Procesando secuencia: ${sequence.name}`);
+          
+          // Obtener todos los templates de esta secuencia
+          const sequenceTemplates = await storage.getTemplatesBySequence(sequence.id);
+          console.log(`    📝 Templates encontrados: ${sequenceTemplates.length}`);
+          
+          // Agrupar templates por nombre
+          const templateGroups = sequenceTemplates.reduce((groups, template) => {
+            const name = template.templateName;
+            if (!groups[name]) groups[name] = [];
+            groups[name].push(template);
+            return groups;
+          }, {});
+          
+          // Limpiar duplicados
+          for (const [templateName, templateList] of Object.entries(templateGroups)) {
+            if (templateList.length > 1) {
+              console.log(`    ⚠️  Duplicados encontrados para ${templateName}: ${templateList.length} templates`);
+              
+              // Ordenar por fecha de creación (mantener el más antiguo)
+              templateList.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+              
+              // Eliminar todos excepto el primero
+              for (let i = 1; i < templateList.length; i++) {
+                const templateToDelete = templateList[i];
+                console.log(`    🗑️  Eliminando template duplicado: ${templateName} #${i + 1} (ID: ${templateToDelete.id})`);
+                
+                await storage.deleteTemplate(templateToDelete.id);
+                totalCleaned++;
+              }
+              
+              console.log(`    ✅ Limpieza completada para ${templateName}`);
+            }
+          }
+        }
+      }
+      
+      console.log(`\n🎉 Limpieza completada. Total eliminados: ${totalCleaned}`);
+      
+      res.json({ 
+        success: true, 
+        message: `Limpieza completada exitosamente. ${totalCleaned} templates duplicados eliminados.`,
+        totalCleaned
+      });
+    } catch (error: any) {
+      console.error("❌ Error durante la limpieza:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
