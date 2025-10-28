@@ -1,197 +1,83 @@
-# 🎯 RafAgent - Plataforma de Outbound Sales
+# 🤖 RafAgent Persistent Automation Engine
 
-> **Transforma tu prospección de ventas con inteligencia artificial**
+Este es el motor persistente de RafAgent que maneja todas las tareas de automatización que requieren ejecución continua, evitando los límites de tiempo de las funciones serverless.
 
-RafAgent es una plataforma profesional de CRM diseñada para automatizar secuencias de email outbound, clasificar respuestas con IA, y programar reuniones inteligentemente.
+## 🎯 Propósito
 
----
+- **Ejecución Persistente**: Corre 24/7 sin límites de tiempo
+- **Automatización de Emails**: Envío automático de secuencias
+- **Análisis AI**: Clasificación automática de respuestas
+- **Programación de Reuniones**: Agendamiento automático
+- **Cron Jobs**: Tareas programadas (recordatorios, seguimientos)
 
-## ✨ **Características Principales**
-
-- 🤖 **Automatización Inteligente**: Secuencias de 4 touchpoints con seguimiento automático
-- 🧠 **Clasificación con Gemini AI**: Analiza respuestas y categoriza prospectos automáticamente
-- 📧 **Integración Gmail**: Envía emails nativamente desde tu cuenta
-- 📅 **Smart Scheduling**: Programa reuniones en Google Calendar con buffer de 24h
-- 🎨 **UI Profesional**: Diseño minimalista inspirado en Salesforce Lightning
-- 🌍 **Multi-timezone**: Soporte para diferentes zonas horarias
-- 📊 **Analytics**: Dashboard con métricas de rendimiento en tiempo real
-
----
-
-## 🚀 **Inicio Rápido**
-
-### **1. Pre-requisitos**
-- Node.js 20+ instalado
-- Una cuenta de Google (Gmail)
-- API Key de Gemini AI
-
-### **2. Configuración**
-
-Sigue la **[Guía de Configuración Completa](./SETUP_GUIDE.md)** que incluye:
-- ✅ Configurar base de datos PostgreSQL (Neon - gratis)
-- ✅ Configurar Gemini AI
-- ✅ Configurar Google Cloud OAuth
-- ✅ Instalar dependencias
-- ✅ Variables de entorno
-- ✅ Iniciar la aplicación
-
-### **3. Comandos Básicos**
-
-```bash
-# Instalar dependencias
-npm install
-
-# Crear tablas en la base de datos
-npm run db:push
-
-# Iniciar en modo desarrollo
-npm run dev
-
-# Construir para producción
-npm run build
-
-# Iniciar en producción
-npm start
-```
-
----
-
-## 📁 **Estructura del Proyecto**
+## 🏗️ Arquitectura
 
 ```
-rafagent/
-├── client/               # Frontend React + TypeScript
-│   ├── src/
-│   │   ├── components/  # Componentes UI reutilizables
-│   │   ├── pages/       # Páginas de la aplicación
-│   │   ├── lib/         # Utilidades y configuración
-│   │   └── hooks/       # React hooks personalizados
-│   └── index.html
-├── server/              # Backend Express + TypeScript
-│   ├── services/        # Lógica de negocio
-│   │   ├── ai.ts       # Integración Gemini AI
-│   │   ├── gmail.ts    # Integración Gmail
-│   │   └── calendar.ts # Integración Google Calendar
-│   ├── routes.ts        # Endpoints de la API
-│   ├── storage.ts       # Capa de acceso a datos
-│   └── index.ts         # Punto de entrada del servidor
-├── shared/              # Código compartido
-│   └── schema.ts        # Schema de base de datos (Drizzle)
-├── SETUP_GUIDE.md       # 📖 Guía de configuración paso a paso
-└── ENV_TEMPLATE.txt     # Plantilla de variables de entorno
+rafagent-engine/
+├── src/
+│   ├── automation/          # Motor principal de automatización
+│   │   ├── agent.ts         # Motor de secuencias de email
+│   │   ├── scheduler.ts      # Scheduler principal
+│   │   └── reminderScheduler.ts # Scheduler de recordatorios
+│   ├── services/            # Servicios externos
+│   │   ├── gmail.ts         # Envío de emails
+│   │   ├── ai.ts            # Análisis AI
+│   │   ├── calendar.ts     # Programación de reuniones
+│   │   └── websocket.ts     # Notificaciones en tiempo real
+│   ├── utils/              # Utilidades
+│   │   ├── workingHours.ts # Lógica de horarios
+│   │   └── timezone.ts     # Conversión de zonas horarias
+│   ├── auth.ts             # Autenticación Google OAuth
+│   ├── storage.ts          # Acceso a base de datos
+│   ├── db.ts              # Configuración de DB
+│   └── index.ts           # Servidor principal
+├── shared/                 # Código compartido
+│   └── schema.ts          # Esquema de base de datos
+└── package.json           # Dependencias del motor
 ```
 
----
+## 🚀 Deployment
 
-## 🎨 **Stack Tecnológico**
+### Railway (Recomendado)
+1. Conecta tu repositorio de GitHub
+2. Configura las variables de entorno
+3. Deploy automático
 
-### **Frontend**
-- **React 18** + TypeScript
-- **Tailwind CSS** + shadcn/ui (componentes)
-- **TanStack Query** (gestión de estado)
-- **Wouter** (routing)
-- **Vite** (build tool)
+### Render
+1. Conecta tu repositorio de GitHub
+2. Configura las variables de entorno
+3. Deploy automático
 
-### **Backend**
-- **Express.js** + TypeScript
-- **Drizzle ORM** (PostgreSQL)
-- **Google APIs** (Gmail + Calendar)
-- **Gemini AI** (clasificación de respuestas)
+## 🔧 Variables de Entorno
 
-### **Base de Datos**
-- **PostgreSQL** (via Neon/Supabase)
-
----
-
-## 🔐 **Seguridad**
-
-- ✅ Variables de entorno nunca se suben a Git
-- ✅ OAuth 2.0 para autenticación con Google
-- ✅ Conexiones SSL/TLS a la base de datos
-- ✅ Session management con express-session
-
----
-
-## 📊 **Casos de Uso**
-
-### **Para Sales Development Reps (SDRs)**
-- Automatiza secuencias de prospección
-- Reduce tiempo de respuesta a leads interesados
-- Mantén todos tus prospectos organizados
-
-### **Para Equipos de Ventas**
-- Visibilidad centralizada del pipeline
-- Métricas de rendimiento por campaña
-- Seguimiento de actividad automatizado
-
-### **Para Fundadores/Solopreneurs**
-- Escala tu outbound sin contratar
-- IA clasifica respuestas 24/7
-- Programa reuniones automáticamente
-
----
-
-## 🛠️ **Desarrollo**
-
-### **Comandos de Desarrollo**
-
-```bash
-# Verificar errores de TypeScript
-npm run check
-
-# Sincronizar schema de BD
-npm run db:push
-
-# Modo desarrollo con hot-reload
-npm run dev
+```env
+DATABASE_URL=postgresql://...
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+GEMINI_API_KEY=your_gemini_key
+PORT=3001
+NODE_ENV=production
 ```
 
-### **Variables de Entorno**
+## 📊 Endpoints
 
-Consulta `ENV_TEMPLATE.txt` para ver todas las variables necesarias.
+- `GET /health` - Health check
+- `GET /api/status` - Estado del motor
+- `POST /api/agent/run/:userId` - Ejecutar motor manualmente
 
----
+## 🔄 Integración con Frontend
 
-## 📈 **Roadmap**
+El frontend (Vercel) se conecta a este motor para:
+- Iniciar secuencias de email
+- Obtener estado de automatización
+- Recibir notificaciones en tiempo real
 
-- [x] Core de automatización de emails
-- [x] Clasificación de respuestas con IA
-- [x] Scheduling inteligente
-- [x] Dashboard profesional
-- [ ] Autenticación multi-usuario
-- [ ] Importación bulk de CSV
-- [ ] Webhooks para integraciones
-- [ ] App móvil (React Native)
-- [ ] Templates de email con A/B testing
+## 💰 Costos Estimados
 
----
-
-## 🤝 **Contribuir**
-
-Este es un proyecto privado en desarrollo activo. Si tienes sugerencias o encuentras bugs, documéntalos para revisión.
+- **Railway**: $5/mes (plan básico)
+- **Render**: $7/mes (plan básico)
+- **Total**: ~$5-7/mes para 1000+ usuarios
 
 ---
 
-## 📄 **Licencia**
-
-Código propietario - Todos los derechos reservados
-
----
-
-## 💬 **Soporte**
-
-¿Problemas con la configuración? Consulta primero:
-1. **[SETUP_GUIDE.md](./SETUP_GUIDE.md)** - Guía paso a paso completa
-2. **[design_guidelines.md](./design_guidelines.md)** - Principios de diseño
-3. **[replit.md](./replit.md)** - Documentación técnica del proyecto
-
----
-
-<div align="center">
-  
-**Hecho con ❤️ para modernizar el outbound sales**
-
-[Documentación](./SETUP_GUIDE.md) · [Reportar Bug](#) · [Solicitar Feature](#)
-
-</div>
-
+**Motor diseñado para escalar a 1000+ vendedores sin problemas de timeout**
