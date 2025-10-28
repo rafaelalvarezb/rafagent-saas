@@ -1,0 +1,1 @@
+ALTER TABLE "user_config" ADD COLUMN "last_agent_run" timestamp;

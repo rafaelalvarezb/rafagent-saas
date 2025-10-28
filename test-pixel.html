@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Pixel Tracking</title>
+</head>
+<body>
+    <h1>Test Pixel Tracking</h1>
+    <p>Si el pixel funciona, deberías ver un mensaje en la consola del servidor cuando abras esta página.</p>
+    
+    <h2>Prospect ID de Carlos:</h2>
+    <p>Busca el ID de Carlos en la sección Prospects y reemplázalo abajo:</p>
+    
+    <!-- Reemplaza PROSPECT_ID con el ID real de Carlos -->
+    <img src="http://localhost:3000/api/pixel/e90c2a86-01f0-4239-909f-40f3af79a6ff" 
+         width="1" 
+         height="1" 
+         style="display:none;" 
+         onload="alert('Pixel loaded successfully!')" 
+         onerror="alert('Pixel failed to load!')" />
+    
+    <h2>Instrucciones:</h2>
+    <ol>
+        <li>Abre esta página en tu navegador: <code>file:///Users/anaramos/Desktop/RafAgent (from Replit to Cursor)/test-pixel.html</code></li>
+        <li>Deberías ver un alert si el pixel carga o falla</li>
+        <li>Revisa los logs del servidor para ver si se registró</li>
+        <li>Ve al Dashboard y verifica si "Total Opened" aumentó</li>
+    </ol>
+    
+    <h2>Debugging:</h2>
+    <p>Abre Developer Tools (F12) y ve a la pestaña "Network" para ver si la petición al pixel se realiza.</p>
+</body>
+</html>
+

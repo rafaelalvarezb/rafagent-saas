@@ -1,0 +1,722 @@
+// ===================================================================================================
+// VERSION 11.0 - RAFAGENT (AI AGENT CORE LIBRARY)
+// Changelog: Reads column headers dynamically for backward compatibility. Added ${externalCID} variable.
+// ===================================================================================================
+
+// --- FUNCIONES DE UI Y DISPARADORES ---
+
+/**
+ * Runs from an installable trigger when a user edits the spreadsheet.
+ * NOW HANDLES BOTH checking AND unchecking the box for instant feedback.
+ */
+function onEditHandler(e) {
+  const sheet = e.source.getActiveSheet();
+  const editedRange = e.range;
+  const sheetName = sheet.getName();
+  const headerMap = createHeaderMap(sheet); // Lee los encabezados para encontrar las columnas correctas
+
+  // Si la columna "Send Sequence" no existe, no hace nada.
+  if (headerMap.sendsequence === undefined) return;
+
+  // La columna Send Sequence ahora puede estar en cualquier lugar. Le sumamos 1 porque los arrays empiezan en 0.
+  if (sheetName === 'Prospects' && editedRange.getColumn() === headerMap.sendsequence + 1) {
+    const row = editedRange.getRow();
+    const statusCell = sheet.getRange(row, headerMap.status + 1);
+    const currentStatus = statusCell.getValue().toString();
+
+    if (e.value === 'TRUE') {
+      if (!currentStatus) {
+        // Pasa el headerMap a la función de envío inicial
+        sendInitialEmail(row, sheetName, headerMap);
+      } else if (currentStatus.startsWith('🚫')) {
+        statusCell.setValue('Following up');
+      }
+    } else if (e.value === 'FALSE') {
+      if (currentStatus === 'Following up' || currentStatus.startsWith('✅')) {
+        statusCell.setValue('🚫 Paused (Manual Stop)');
+      }
+    }
+  }
+}
+
+/**
+ * A setup wizard that configures the agent and then shows the interactive final steps window.
+ */
+function setupWizard() {
+  const ui = SpreadsheetApp.getUi();
+  const title = '🚀 AI Agent Setup Wizard';
+
+  const namePrompt = ui.prompt(title, 'Please enter your full name (e.g., Jane Doe):', ui.ButtonSet.OK_CANCEL);
+  if (namePrompt.getSelectedButton() !== ui.Button.OK || !namePrompt.getResponseText()) return;
+  const userName = namePrompt.getResponseText();
+
+  const titlePrompt = ui.prompt(title, 'Please enter your job title (e.g., Account Executive):', ui.ButtonSet.OK_CANCEL);
+  if (titlePrompt.getSelectedButton() !== ui.Button.OK || !titlePrompt.getResponseText()) return;
+  const userTitle = titlePrompt.getResponseText();
+
+  const configSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Configuration');
+  configSheet.getRange('B3').setValue(userName);
+  configSheet.getRange('B4').setValue(userTitle);
+  configSheet.getRange('B7').setValue(Session.getEffectiveUser().getEmail());
+  
+  try {
+    GmailApp.createLabel('Process-Prospect');
+  } catch(e) {
+    Logger.log('Gmail label likely already exists: ' + e);
+  }
+
+  const allTriggers = ScriptApp.getProjectTriggers();
+  for (const trigger of allTriggers) {
+    ScriptApp.deleteTrigger(trigger);
+  }
+
+  ScriptApp.newTrigger('triggerHandler').timeBased().everyHours(1).create();
+  ScriptApp.newTrigger('processContactsFromGmail').timeBased().everyMinutes(1).create();
+  ScriptApp.newTrigger('onEditHandler').forSpreadsheet(SpreadsheetApp.getActive()).onEdit().create();
+
+  showSetupSidebar();
+}
+
+/**
+ * Runs the main agent logic manually and provides a success message.
+ */
+function manualAgentExecution() {
+  Logger.log('Manual agent execution triggered for authorization or testing.');
+  reviewDailyFollowUps();
+  
+  const properties = PropertiesService.getUserProperties();
+  const now = new Date().getTime();
+  properties.setProperty('LAST_RUN_TIMESTAMP', now.toString());
+  
+  SpreadsheetApp.getUi().alert('✅ Success! The agent is now authorized and running.');
+}
+
+/**
+ * Shows the interactive setup sidebar to the user.
+ */
+function showSetupSidebar() {
+  const html = HtmlService.createHtmlOutputFromFile('SetupSidebar')
+      .setWidth(400)
+      .setHeight(500);
+  SpreadsheetApp.getUi().showModalDialog(html, 'AI Agent Final Setup');
+}
+
+/**
+ * Returns the URL for the Gmail filter settings page.
+ */
+function getFilterUrl() {
+  const zoominfoEmail = 'customersuccess@zoominfo.com';
+  return `https://mail.google.com/mail/u/0/#settings/filters?new-filter-from=${encodeURIComponent(zoominfoEmail)}`;
+}
+
+/**
+ * Returns the current version of the library.
+ */
+function getVersion() {
+  return '11.0';
+}
+
+
+// --- FUNCIÓN HELPER MEJORADA ---
+/**
+ * Crea un mapa de encabezados para leer datos por nombre en lugar de por índice.
+ * @param {Sheet} sheet La hoja de la que se leerán los encabezados.
+ * @return {Object} Un objeto que mapea nombres de encabezado a sus índices de columna.
+ */
+function createHeaderMap(sheet) {
+  if (!sheet) return {};
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const headerMap = {};
+  headers.forEach((header, index) => {
+    if (header) {
+      const key = header.toLowerCase().replace(/\s+/g, '');
+      headerMap[key] = index;
+    }
+  });
+  return headerMap;
+}
+
+
+// --- FUNCIONES PRINCIPALES ACTUALIZADAS ---
+
+function triggerHandler() {
+  const properties = PropertiesService.getUserProperties();
+  const lastRun = parseInt(properties.getProperty('LAST_RUN_TIMESTAMP') || '0');
+  const now = new Date().getTime();
+  const { config } = getSettingsAndTemplates();
+  const frequencyHours = parseFloat(config.AGENT_FREQUENCY_HOURS) || 2;
+  const frequencyMilliseconds = frequencyHours * 60 * 60 * 1000;
+  if (now - lastRun >= frequencyMilliseconds) {
+    reviewDailyFollowUps();
+    properties.setProperty('LAST_RUN_TIMESTAMP', now.toString());
+    Logger.log(`Agent executed. Next check in ${frequencyHours} hour(s).`);
+  } else {
+    Logger.log('Not time to run the agent yet. Skipping.');
+  }
+}
+
+function getSettingsAndTemplates() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const configSheet = spreadsheet.getSheetByName("Configuration");
+  const templateSheet = spreadsheet.getSheetByName("Templates");
+  if (!configSheet || !templateSheet) {
+    throw new Error("Ensure 'Configuration' and 'Templates' sheets exist.");
+  }
+  const configData = configSheet.getRange("A2:B12").getValues();
+  const config = {
+    GEMINI_API_KEY: configData[0][1],
+    YOUR_NAME: configData[1][1],
+    YOUR_TITLE: configData[2][1],
+    DAYS_BETWEEN_FOLLOWUPS: configData[3][1],
+    NUMBER_OF_TOUCHPOINTS: configData[4][1],
+    YOUR_EMAIL: configData[5][1],
+    MEET_TITLE: configData[6][1],
+    MEET_DESCRIPTION: configData[7][1],
+    SEARCH_START_TIME: configData[8][1],
+    SEARCH_END_TIME: configData[9][1],
+    AGENT_FREQUENCY_HOURS: configData[10][1]
+  };
+  const templateData = templateSheet.getRange("A2:C" + templateSheet.getLastRow()).getValues();
+  const templates = {};
+  templateData.forEach(row => {
+    if (row[0]) { 
+      const key = row[0].toString().trim();
+      templates[key] = { subject: row[1], body: row[2] };
+    }
+  });
+  return { config, templates };
+}
+
+function callGeminiApi(prompt) {
+  const { config } = getSettingsAndTemplates();
+  if (!config.GEMINI_API_KEY) {
+    throw new Error("Gemini API Key is missing from the Configuration sheet.");
+  }
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + config.GEMINI_API_KEY;
+  const payload = { "contents": [{"parts": [{"text": prompt}]}] };
+  const options = { 'method': 'post', 'contentType': 'application/json', 'payload': JSON.stringify(payload) };
+  const response = UrlFetchApp.fetch(url, options);
+  const data = JSON.parse(response.getContentText());
+  if (!data.candidates || !data.candidates[0].content.parts[0].text) {
+    throw new Error("The AI response was empty or invalid.");
+  }
+  return data.candidates[0].content.parts[0].text;
+}
+
+function getGmailSignature() {
+  try {
+    const aliases = Gmail.Users.Settings.SendAs.list('me').sendAs;
+    const primaryAlias = aliases.find(a => a.isPrimary);
+    if (primaryAlias && primaryAlias.signature) { return primaryAlias.signature; }
+  } catch (e) {
+    Logger.log('Error getting Gmail signature: ' + e);
+    return "";
+  }
+  return "";
+}
+
+function reviewDailyFollowUps() {
+  const sheetName = "Prospects";
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if (!sheet) return;
+
+  const { config } = getSettingsAndTemplates();
+  const userTimezone = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+  const now = new Date();
+  
+  const dayOfWeek = parseInt(Utilities.formatDate(now, userTimezone, "u"));
+  const currentHour = parseInt(Utilities.formatDate(now, userTimezone, "H"));
+  if (dayOfWeek === 6 || dayOfWeek === 7) { Logger.log('Weekend. Agent is sleeping.'); return; }
+  
+  let startTimeText = config.SEARCH_START_TIME;
+  if (startTimeText && startTimeText.constructor === Date) { startTimeText = Utilities.formatDate(startTimeText, userTimezone, "HH:mm"); }
+  let endTimeText = config.SEARCH_END_TIME;
+  if (endTimeText && endTimeText.constructor === Date) { endTimeText = Utilities.formatDate(endTimeText, userTimezone, "HH:mm"); }
+  const [startHour] = startTimeText.split(':').map(Number);
+  const [endHour] = endTimeText.split(':').map(Number);
+  if (currentHour < startHour || currentHour >= endHour) { Logger.log('Outside working hours. Agent is sleeping.'); return; }
+
+  const data = sheet.getDataRange().getValues();
+  const headerMap = createHeaderMap(sheet);
+  const today = new Date();
+
+  for (let i = 1; i < data.length; i++) {
+    const row = i + 1;
+    const rowData = data[i];
+
+    const status = rowData[headerMap.status] ? rowData[headerMap.status].toString() : "";
+    const sendSequence = rowData[headerMap.sendsequence];
+
+    if (sendSequence === true) {
+      if (status === 'Following up' || status.startsWith('🚫') || status.startsWith('❌')) {
+        const touchpointsSent = rowData[headerMap.touchpointssent];
+        const lastContactDate = new Date(rowData[headerMap.lastcontactdate]);
+        const threadId = rowData[headerMap.threadid];
+
+        if (threadId) {
+          try {
+            const thread = GmailApp.getThreadById(threadId);
+            const messages = thread.getMessages();
+            if (messages.length > touchpointsSent) {
+              const lastMessage = messages[messages.length - 1];
+              if (!lastMessage.getFrom().includes(config.YOUR_EMAIL)) {
+                analyzeResponse(row, sheetName, headerMap);
+                continue;
+              }
+            }
+          } catch (e) {
+            sheet.getRange(row, headerMap.status + 1).setValue('❌ Error: Thread not found');
+            continue;
+          }
+        }
+
+        if (touchpointsSent < config.NUMBER_OF_TOUCHPOINTS) {
+          const dayDiff = Math.floor((today.getTime() - lastContactDate.getTime()) / (1000 * 3600 * 24));
+          if (dayDiff >= config.DAYS_BETWEEN_FOLLOWUPS) {
+            sendFollowUpEmail(row, sheetName, headerMap);
+          }
+        } else if (status === 'Following up') {
+          sheet.getRange(row, headerMap.status + 1).setValue('🚫 Sequence Finished');
+        }
+      } else if (status === '✅ Interested - Schedule!') {
+        const suggestedDaysText = rowData[headerMap.suggesteddays] || "";
+        const suggestedTimeText = rowData[headerMap.suggestedtime] || "";
+        const suggestedWeekText = rowData[headerMap.suggestedweek] || "";
+        const suggestedDaysArray = suggestedDaysText ? suggestedDaysText.split(',').map(d => d.trim()) : [];
+        scheduleMeeting(row, sheetName, headerMap, suggestedDaysArray, suggestedTimeText, suggestedWeekText);
+      }
+    }
+  }
+}
+
+function sendInitialEmail(rowNumber, sheetName, headerMap) {
+  if (!headerMap) { headerMap = createHeaderMap(SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName)); }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const { config, templates } = getSettingsAndTemplates();
+  sheet.getRange(rowNumber, headerMap.status + 1).setValue('🤖 Processing...');
+
+  try {
+    const rowData = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+    
+    const externalCID = rowData[headerMap.externalcid];
+    const contactName = rowData[headerMap.contactname];
+    const contactEmail = rowData[headerMap.contactemail];
+    const contactTitle = rowData[headerMap.contacttitle];
+    const companyName = rowData[headerMap.companyname];
+    const industry = rowData[headerMap.industry];
+
+    if (!contactEmail) throw new Error("Contact email is missing.");
+    
+    let template;
+    if (contactName === 'New Contact (Referral)') {
+      template = templates['Referral-Initial'];
+    } else if (contactName && companyName) {
+      template = templates['Initial'];
+    } else if (contactName && !companyName) {
+      template = templates['Initial-SemiGeneric'];
+    } else {
+      template = templates['Initial-Generic'];
+    }
+
+    if (!template) throw new Error("Could not find a suitable initial template.");
+
+    const replacer = (text) => {
+      if (!text) return "";
+      return text
+        .replace(/\$\{externalCID\}/g, externalCID || "")
+        .replace(/\$\{contactName\}/g, contactName || "")
+        .replace(/\$\{companyName\}/g, companyName || "")
+        .replace(/\$\{contactTitle\}/g, contactTitle || "")
+        .replace(/\$\{industry\}/g, industry || "")
+        .replace(/\$\{YOUR_NAME\}/g, config.YOUR_NAME || "");
+    };
+
+    let bodyText = replacer(template.body);
+    let subject = replacer(template.subject);
+    
+    const bodyAsHtml = `<div style="font-family: Arial, sans-serif; font-size: 13px; color: #202124;">${bodyText.replace(/\n/g, '<br>')}</div>`;
+    const signatureHtml = getGmailSignature();
+    const fullHtmlBody = `${bodyAsHtml}<br>${signatureHtml}`;
+
+    const draft = GmailApp.createDraft(contactEmail, subject, "", { htmlBody: fullHtmlBody });
+    const sentMessage = draft.send();
+    const threadId = sentMessage.getThread().getId();
+    const threadLink = `https://mail.google.com/mail/u/0/#thread/${threadId}`;
+
+    sheet.getRange(rowNumber, headerMap.status + 1).setValue('Following up');
+    sheet.getRange(rowNumber, headerMap.threadlink + 1).setValue(threadLink);
+    sheet.getRange(rowNumber, headerMap.touchpointssent + 1).setValue(1);
+    sheet.getRange(rowNumber, headerMap.lastcontactdate + 1).setValue(new Date());
+    sheet.getRange(rowNumber, headerMap.threadid + 1).setValue(threadId);
+    logAction(rowNumber, "Initial Email Sent", `Email sent to ${contactEmail}.`);
+
+  } catch (error) {
+    sheet.getRange(rowNumber, headerMap.status + 1).setValue('❌ Error: ' + error.message);
+    logAction(rowNumber, "Initial Email Error", error.message);
+  }
+}
+
+function sendFollowUpEmail(rowNumber, sheetName, headerMap) {
+  if (!headerMap) { headerMap = createHeaderMap(SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName)); }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const { config, templates } = getSettingsAndTemplates();
+  
+  const rowData = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const touchpointsSent = rowData[headerMap.touchpointssent];
+  const nextTouchpoint = touchpointsSent + 1;
+  sheet.getRange(rowNumber, headerMap.status + 1).setValue(`🤖 Drafting Follow-up #${nextTouchpoint}...`);
+
+  try {
+    const externalCID = rowData[headerMap.externalcid];
+    const contactName = rowData[headerMap.contactname];
+    const contactEmail = rowData[headerMap.contactemail];
+    const contactTitle = rowData[headerMap.contacttitle];
+    const companyName = rowData[headerMap.companyname];
+    const industry = rowData[headerMap.industry];
+    const threadId = rowData[headerMap.threadid];
+    if (!threadId) throw new Error("Missing Thread ID.");
+
+    const templateName = `Follow-up ${nextTouchpoint}`;
+    let template = templates[templateName];
+    if (!template || !template.body) {
+      sheet.getRange(rowNumber, headerMap.status + 1).setValue(`🚫 Template not found for Touchpoint #${nextTouchpoint}`);
+      return; 
+    }
+
+    const replacer = (text) => {
+      if (!text) return "";
+      return text
+        .replace(/\$\{externalCID\}/g, externalCID || "")
+        .replace(/\$\{contactName\}/g, contactName || "")
+        .replace(/\$\{companyName\}/g, companyName || "")
+        .replace(/\$\{contactTitle\}/g, contactTitle || "")
+        .replace(/\$\{industry\}/g, industry || "")
+        .replace(/\$\{YOUR_NAME\}/g, config.YOUR_NAME || "");
+    };
+    let followUpText = replacer(template.body);
+    
+    const bodyAsHtml = `<div style="font-family: Arial, sans-serif; font-size: 13px; color: #202124;">${followUpText.replace(/\n/g, '<br>')}</div>`;
+    const signatureHtml = getGmailSignature();
+    const fullHtmlBody = `${bodyAsHtml}<br>${signatureHtml}`;
+
+    const thread = GmailApp.getThreadById(threadId);
+    const firstMessage = thread.getMessages()[0];
+    
+    firstMessage.forward(contactEmail, {
+      htmlBody: fullHtmlBody,
+      from: config.YOUR_EMAIL,
+      name: config.YOUR_NAME
+    });
+    
+    sheet.getRange(rowNumber, headerMap.status + 1).setValue('Following up');
+    sheet.getRange(rowNumber, headerMap.touchpointssent + 1).setValue(nextTouchpoint);
+    sheet.getRange(rowNumber, headerMap.lastcontactdate + 1).setValue(new Date());
+    logAction(rowNumber, `Follow-up #${nextTouchpoint}`, `Follow-up sent to ${contactEmail}.`);
+
+  } catch (error) {
+    sheet.getRange(rowNumber, headerMap.status + 1).setValue('❌ Follow-up Error: ' + error.message);
+    logAction(rowNumber, "Follow-up Error", error.message);
+  }
+}
+
+function analyzeResponse(rowNumber, sheetName, headerMap) {
+  if (!headerMap) { headerMap = createHeaderMap(SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName)); }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const { config } = getSettingsAndTemplates();
+  const rowData = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const threadId = rowData[headerMap.threadid];
+
+  try {
+    const thread = GmailApp.getThreadById(threadId);
+    const lastMessage = thread.getMessages().pop();
+    const sender = lastMessage.getFrom().toLowerCase();
+
+    if (sender.includes('mailer-daemon@') || sender.includes('postmaster@')) {
+      sheet.getRange(rowNumber, headerMap.status + 1).setValue('Bounce - Invalid Email');
+      logAction(rowNumber, "Bounce Response", "Automatic bounce message detected.");
+      return;
+    }
+
+    sheet.getRange(rowNumber, headerMap.status + 1).setValue('🧐 Analyzing response...');
+    const responseBody = lastMessage.getPlainBody();
+    
+    const classificationPrompt = `
+      Analyze ONLY the LATEST customer reply in an email thread.
+      Perform FIVE tasks on the latest reply:
+      1. Classify it into ONE of the following categories: INTERESTED, NOT_INTERESTED, REFERRAL, WRONG_EMAIL, OUT_OF_OFFICE, SIMPLE_QUESTION, BOUNCE.
+      2. If INTERESTED and they EXPLICITLY mention specific days/times, extract them.
+      3. If REFERRAL, extract the new email address.
+      VERY IMPORTANT RULES:
+      - A REFERRAL (e.g., "talk to my colleague", "her email is...") takes priority. Classify it as REFERRAL, even if they sound polite.
+      - Only classify as INTERESTED if the sender is expressing interest for *themselves* and it is *not* a referral.
+      - If no specific day, time, or week is mentioned, DO NOT invent one.
+      EXACT Output Format:
+      Line 1: The category in uppercase.
+      Line 2 (IF APPLIES): DAYS:Tuesday
+      Line 3 (IF APPLIES): TIME:15:00
+      Line 4 (IF APPLIES): WEEK:next
+      Line 5 (IF APPLIES): EMAIL:new.contact@company.com
+      Email to analyze:
+      ---
+      ${responseBody}
+      ---
+    `;
+
+    const aiResponse = callGeminiApi(classificationPrompt).trim().split('\n');
+    const classification = aiResponse[0];
+    let suggestedDays = [], suggestedTime = "", suggestedWeek = "", referredEmail = "";
+    
+    sheet.getRange(rowNumber, headerMap.suggesteddays + 1, 1, 3).clearContent();
+
+    aiResponse.forEach(line => {
+      if (line.startsWith('DAYS:')) {
+        suggestedDays = line.replace('DAYS:', '').trim().split(',').map(day => day.trim());
+        sheet.getRange(rowNumber, headerMap.suggesteddays + 1).setValue(suggestedDays.join(', '));
+      }
+      if (line.startsWith('TIME:')) {
+        suggestedTime = line.replace('TIME:', '').trim();
+        sheet.getRange(rowNumber, headerMap.suggestedtime + 1).setValue(suggestedTime);
+      }
+      if (line.startsWith('WEEK:')) {
+        suggestedWeek = line.replace('WEEK:', '').trim();
+        sheet.getRange(rowNumber, headerMap.suggestedweek + 1).setValue(suggestedWeek);
+      }
+      if (line.startsWith('EMAIL:')) {
+        referredEmail = line.replace('EMAIL:', '').trim();
+      }
+    });
+
+    switch (classification) {
+      case 'INTERESTED':
+        sheet.getRange(rowNumber, headerMap.status + 1).setValue('✅ Interested - Schedule!');
+        scheduleMeeting(rowNumber, sheetName, headerMap, suggestedDays, suggestedTime, suggestedWeek);
+        break;
+      case 'REFERRAL':
+        if (referredEmail) {
+          const originalRowData = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+          const newRow = [];
+          newRow[headerMap.contactname] = "New Contact (Referral)";
+          newRow[headerMap.contactemail] = referredEmail;
+          newRow[headerMap.companyname] = originalRowData[headerMap.companyname];
+          newRow[headerMap.industry] = originalRowData[headerMap.industry];
+          newRow[headerMap.sendsequence] = true;
+          sheet.appendRow(newRow);
+          sheet.getRange(rowNumber, headerMap.status + 1).setValue(`🤝 Referred to ${referredEmail}`);
+        } else {
+          sheet.getRange(rowNumber, headerMap.status + 1).setValue('🤝 Referral (Email not found)');
+        }
+        break;
+      case 'BOUNCE':
+        sheet.getRange(rowNumber, headerMap.status + 1).setValue('Bounce - Invalid Email');
+        break;
+      case 'NOT_INTERESTED':
+        sheet.getRange(rowNumber, headerMap.status + 1).setValue('❌ Not Interested');
+        break;
+      case 'WRONG_EMAIL':
+        sheet.getRange(rowNumber, headerMap.status + 1).setValue('🤷‍♂️ Wrong Email');
+        break;
+      case 'OUT_OF_OFFICE':
+        sheet.getRange(rowNumber, headerMap.status + 1).setValue('Contact is OOO, manual FUP');
+        break;
+      case 'SIMPLE_QUESTION':
+        sheet.getRange(rowNumber, headerMap.status + 1).setValue('❓ Question / Neutral');
+        break;
+      default:
+        sheet.getRange(rowNumber, headerMap.status + 1).setValue('🤔 Unclassified Response');
+        break;
+    }
+    logAction(rowNumber, "Response Analysis", `Classification: ${classification}.`);
+
+  } catch (error) {
+    sheet.getRange(rowNumber, headerMap.status + 1).setValue('❌ Analysis Error: ' + error.message);
+  }
+}
+
+function scheduleMeeting(rowNumber, sheetName, headerMap, suggestedDays, suggestedTime, suggestedWeek) {
+  if (!headerMap) { headerMap = createHeaderMap(SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName)); }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const { config } = getSettingsAndTemplates();
+  sheet.getRange(rowNumber, headerMap.status + 1).setValue('🤖 Creating event...');
+  try {
+    const rowData = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const externalCID = rowData[headerMap.externalcid];
+    const contactName = rowData[headerMap.contactname];
+    const contactEmail = rowData[headerMap.contactemail];
+    const contactTitle = rowData[headerMap.contacttitle];
+    const companyName = rowData[headerMap.companyname];
+    const industry = rowData[headerMap.industry];
+    
+    const meetingDuration = 30;
+    const calendar = CalendarApp.getCalendarById(config.YOUR_EMAIL);
+    const userTimezone = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+    let startTimeText = config.SEARCH_START_TIME;
+    if (startTimeText && startTimeText.constructor === Date) { startTimeText = Utilities.formatDate(startTimeText, userTimezone, "HH:mm"); }
+    let endTimeText = config.SEARCH_END_TIME;
+    if (endTimeText && endTimeText.constructor === Date) { endTimeText = Utilities.formatDate(endTimeText, userTimezone, "HH:mm"); }
+    const [startHour, startMinute] = startTimeText.split(':').map(Number);
+    const [endHour, endMinute] = endTimeText.split(':').map(Number);
+    let eventStartDate;
+    let searchStartDate = new Date();
+    if (suggestedDays.length === 0 && !suggestedTime && !suggestedWeek) {
+      searchStartDate.setHours(searchStartDate.getHours() + 24);
+      const minutes = searchStartDate.getMinutes();
+      if (minutes > 30) { searchStartDate.setMinutes(60, 0, 0); } else if (minutes > 0) { searchStartDate.setMinutes(30, 0, 0); }
+    } else if (suggestedWeek === 'next') {
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const daysUntilMonday = (dayOfWeek === 0) ? 1 : (8 - dayOfWeek);
+      searchStartDate.setDate(today.getDate() + daysUntilMonday);
+    } else {
+      searchStartDate.setDate(searchStartDate.getDate() + 1);
+    }
+    const dayMap = { 'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6 };
+    const suggestedDayNumbers = suggestedDays.map(day => dayMap[day.toLowerCase()]).filter(num => num !== undefined);
+    for (let i = 0; i < 30 && !eventStartDate; i++) {
+      let currentDay = new Date(searchStartDate);
+      currentDay.setDate(currentDay.getDate() + i);
+      const dayOfWeek = currentDay.getDay();
+      if ((suggestedDayNumbers.length > 0 && !suggestedDayNumbers.includes(dayOfWeek)) || dayOfWeek === 0 || dayOfWeek === 6) continue;
+      const eventsToday = calendar.getEventsForDay(currentDay);
+      let workdayStart = new Date(currentDay);
+      workdayStart.setHours(startHour, startMinute, 0, 0);
+      let workdayEnd = new Date(currentDay);
+      workdayEnd.setHours(endHour, endMinute, 0, 0);
+      let searchStartTime = new Date(workdayStart);
+      if (i === 0 && searchStartTime < searchStartDate) {
+        searchStartTime = new Date(searchStartDate);
+      }
+      if (suggestedTime) {
+        let suggestedTimeString = "";
+        if (suggestedTime.constructor === Date) { suggestedTimeString = Utilities.formatDate(suggestedTime, userTimezone, "HH:mm"); } else if (typeof suggestedTime === 'string') { suggestedTimeString = suggestedTime; }
+        if (suggestedTimeString) {
+          const [h, m] = suggestedTimeString.split(':').map(Number);
+          let suggestedTimeDate = new Date(currentDay);
+          suggestedTimeDate.setHours(h, m, 0, 0);
+          if (suggestedTimeDate >= workdayStart && suggestedTimeDate < workdayEnd) { searchStartTime = suggestedTimeDate; }
+        }
+      }
+      while (searchStartTime.getTime() < workdayEnd.getTime()) {
+        if (searchStartTime > new Date()) {
+          let possibleEndTime = new Date(searchStartTime.getTime() + meetingDuration * 60000);
+          let hasConflict = eventsToday.some(e => {
+            const myStatus = e.getMyStatus();
+            const isRealConflict = !e.isAllDayEvent() && (myStatus == CalendarApp.GuestStatus.YES || myStatus == CalendarApp.GuestStatus.OWNER);
+            return isRealConflict && (searchStartTime < e.getEndTime() && possibleEndTime > e.getStartTime());
+          });
+          if (!hasConflict) {
+            eventStartDate = searchStartTime;
+            break;
+          }
+        }
+        searchStartTime.setMinutes(searchStartTime.getMinutes() + 30);
+      }
+    }
+    if (!eventStartDate) throw new Error("No available slots found in the configured time range.");
+
+    const replacer = (text) => {
+      if (!text) return ""; 
+      return text
+        .replace(/\$\{externalCID\}/g, externalCID || "")
+        .replace(/\$\{contactName\}/g, contactName || "")
+        .replace(/\$\{companyName\}/g, companyName || "")
+        .replace(/\$\{contactTitle\}/g, contactTitle || "")
+        .replace(/\$\{industry\}/g, industry || "")
+        .replace(/\$\{YOUR_NAME\}/g, config.YOUR_NAME || "");
+    };
+
+    let eventTitle = replacer(config.MEET_TITLE);
+    if (!eventTitle) {
+      eventTitle = `${companyName || "Meeting"} & Google`; 
+    }
+    const description = replacer(config.MEET_DESCRIPTION);
+    
+    const eventEndDate = new Date(eventStartDate.getTime() + meetingDuration * 60000);
+    const eventOptions = {
+      description: description,
+      guests: contactEmail,
+      sendInvites: true,
+      conferenceData: { createRequest: { conferenceSolutionKey: { type: 'hangoutsMeet' }, requestId: `meet-${Date.now()}` } }
+    };
+
+    calendar.createEvent(eventTitle, eventStartDate, eventEndDate, eventOptions);
+    sheet.getRange(rowNumber, headerMap.status + 1).setValue(`✅ Meeting Scheduled 🗓️`);
+    sheet.getRange(rowNumber, headerMap.threadlink + 1).setValue('Check Calendar');
+    logAction(rowNumber, "Meeting Scheduled", `Meeting created with ${contactEmail} at ${eventStartDate.toLocaleTimeString()}.`);
+
+  } catch (error) {
+    sheet.getRange(rowNumber, headerMap.status + 1).setValue('❌ Scheduling Error: ' + error.message);
+  }
+}
+
+function processContactsFromGmail() {
+  const prospectLabel = GmailApp.getUserLabelByName("Process-Prospect");
+  if (!prospectLabel) return;
+  const threads = prospectLabel.getThreads();
+  const prospectsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Prospects");
+  const headerMap = createHeaderMap(prospectsSheet);
+
+  threads.forEach(thread => {
+    const lastMessage = thread.getMessages().pop();
+    const emailBody = lastMessage.getPlainBody();
+
+    try {
+      const emails = emailBody.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
+      const contactBlocks = [];
+      const regex = /^([A-ZÁÉÍÓÚÑ][a-záéíóúñ'’]+(?: [A-ZÁÉÍÓÚÑ][a-záéíóúñ'’]+)+)\r?\n([^\r\n]+)/gm;
+      let match;
+      while ((match = regex.exec(emailBody)) !== null) {
+        contactBlocks.push({ fullName: match[1].trim(), titleCompanyLine: match[2].trim() });
+      }
+
+      if (contactBlocks.length === 0 || emails.length === 0) {
+        throw new Error("Could not find valid contact blocks or emails.");
+      }
+      
+      for (let i = 0; i < contactBlocks.length; i++) {
+        if (!emails[i]) continue;
+        const contact = contactBlocks[i], email = emails[i];
+        const firstName = contact.fullName.split(' ')[0];
+        let title = "", company = "";
+        const titleCompanyLine = contact.titleCompanyLine;
+        const separatorIndex = Math.max(titleCompanyLine.lastIndexOf(' - '), titleCompanyLine.lastIndexOf(', '));
+
+        if (separatorIndex > -1) {
+          title = titleCompanyLine.substring(0, separatorIndex).trim();
+          company = titleCompanyLine.substring(separatorIndex + 2).trim();
+        } else {
+          title = titleCompanyLine;
+        }
+        
+        const newRow = [];
+        newRow[headerMap.contactname] = firstName;
+        newRow[headerMap.contactemail] = email;
+        newRow[headerMap.contacttitle] = title;
+        newRow[headerMap.companyname] = company;
+        newRow[headerMap.sendsequence] = true;
+
+        prospectsSheet.appendRow(newRow);
+      }
+
+      thread.removeLabel(prospectLabel);
+      thread.moveToArchive();
+
+    } catch (e) {
+      // Create a row with error details
+      const errorRow = [];
+      errorRow[headerMap.contactname] = "ERROR PROCESSING";
+      errorRow[headerMap.contactemail] = e.message;
+      errorRow[headerMap.status] = "CHECK GMAIL FOR PROSPECT EMAIL";
+      prospectsSheet.appendRow(errorRow);
+      thread.removeLabel(prospectLabel);
+    }
+  });
+}
+
+function logAction(row, action, detail) {
+  const logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Logs");
+  if (logSheet) {
+    const timezone = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+    const timestamp = Utilities.formatDate(new Date(), timezone, "yyyy-MM-dd HH:mm:ss");
+    logSheet.appendRow([timestamp, row, action, detail]);
+  }
+}
