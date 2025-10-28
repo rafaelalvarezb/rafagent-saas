@@ -247,6 +247,7 @@ export default function Prospects() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["prospects"] });
+      queryClient.refetchQueries({ queryKey: ["prospects"] });
       toast({
         title: "Sequence updated",
         description: "Prospect sequence status has been updated.",
@@ -272,6 +273,7 @@ export default function Prospects() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["prospects"] });
+      queryClient.refetchQueries({ queryKey: ["prospects"] });
       toast({
         title: "Email Sent",
         description: "Initial email has been sent successfully.",
