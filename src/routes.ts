@@ -25,6 +25,15 @@ function getTemplateNameForTouchpoint(touchpointNumber: number): string {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  // ===== HEALTH CHECK =====
+  app.get("/api/health", (req, res) => {
+    res.json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      websocket: "enabled"
+    });
+  });
+
   // ===== AUTHENTICATION =====
   app.get("/api/auth/google", (req, res) => {
     const authUrl = getAuthUrl();

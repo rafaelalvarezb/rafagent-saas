@@ -11,14 +11,22 @@ export function useWebSocket() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      console.log('❌ No user found, skipping WebSocket connection');
+      return;
+    }
+
+    const wsUrl = import.meta.env.PROD ? 'https://rafagent-engine-production.up.railway.app' : 'http://localhost:3000';
+    console.log('🔌 Attempting to connect to WebSocket:', wsUrl);
+    console.log('👤 User ID:', user.id);
 
     // Initialize WebSocket connection
-    const socket = io(import.meta.env.PROD ? 'https://rafagent-engine-production.up.railway.app' : 'http://localhost:3000', {
+    const socket = io(wsUrl, {
       withCredentials: true,
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
+      transports: ['websocket', 'polling'], // Try both transports
     });
 
     socketRef.current = socket;
@@ -36,6 +44,20 @@ export function useWebSocket() {
 
     socket.on('connect_error', (error) => {
       console.error('❌ WebSocket connection error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        description: error.description,
+        context: error.context,
+        type: error.type,
+      });
+    });
+
+    socket.on('reconnect_error', (error) => {
+      console.error('🔄 WebSocket reconnection error:', error);
+    });
+
+    socket.on('reconnect_failed', () => {
+      console.error('🔄 WebSocket reconnection failed after all attempts');
     });
 
     // Listen for prospect status changes
