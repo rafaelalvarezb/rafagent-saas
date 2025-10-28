@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { usePolling } from "@/hooks/use-polling";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -178,6 +179,9 @@ export default function Prospects() {
 
   // Initialize WebSocket for real-time updates
   useWebSocket();
+  
+  // Fallback polling for updates (in case WebSocket fails)
+  usePolling();
 
   // Fetch prospects (no more polling, updates come via WebSocket)
   const { data: prospects = [], isLoading } = useQuery<Prospect[]>({
