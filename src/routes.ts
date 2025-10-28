@@ -12,7 +12,7 @@ import { runAgent } from "./automation/agent";
 import { createDefaultTemplates, createDefaultUserConfig } from "./automation/defaultTemplates";
 import { isWithinWorkingHours, getWorkingHoursFromConfig, debugWorkingHours } from "./utils/workingHours";
 import { ensureCurrentUserDefaults } from "./utils/ensureDefaults";
-import { emitProspectStatusChange, emitProspectUpdate } from "./services/websocket";
+import { emitProspectStatusChange, emitProspectUpdate, initializeWebSocket } from "./services/websocket";
 
 /**
  * Get template name for touchpoint number
@@ -1392,5 +1392,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Initialize WebSocket server
+  initializeWebSocket(httpServer);
+  console.log("🔌 WebSocket server initialized");
+  
   return httpServer;
 }
