@@ -10,11 +10,11 @@ export function usePolling() {
   useEffect(() => {
     if (!user) return;
 
-    // Poll every 5 seconds for updates
+    // Poll every 3 seconds for updates
     intervalRef.current = setInterval(() => {
       console.log('🔄 Polling for updates...');
       queryClient.invalidateQueries({ queryKey: ['prospects'] });
-    }, 5000);
+    }, 3000);
 
     return () => {
       if (intervalRef.current) {
