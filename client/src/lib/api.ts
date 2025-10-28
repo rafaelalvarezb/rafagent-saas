@@ -1,11 +1,9 @@
 // API Configuration for Production
 // All API calls go through Vercel rewrites (same-origin)
 
-// In production, use /api prefix (Vercel rewrites handle it)
-// In development, use Railway backend directly
-export const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? '/api' // Vercel rewrites /api/* to Railway
-  : (import.meta.env.VITE_API_URL || 'http://localhost:3000');
+// Always use /api prefix in Vercel (rewrites handle it)
+// This ensures we don't try to connect to localhost in production
+export const API_BASE_URL = '/api';
 
 // Token management utilities
 const TOKEN_KEY = 'rafagent_token';
