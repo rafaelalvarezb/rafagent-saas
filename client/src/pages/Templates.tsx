@@ -200,31 +200,6 @@ export default function Templates() {
     },
   });
 
-  // Cleanup duplicates mutation
-  const cleanupDuplicatesMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiCall("/diagnostic/cleanup-duplicates", {
-        method: "POST",
-      });
-      if (!response.ok) throw new Error("Failed to cleanup duplicates");
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sequences"] });
-      queryClient.invalidateQueries({ queryKey: ["templates"] });
-      toast({
-        title: "Success!",
-        description: "Duplicate templates cleaned up successfully!",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to cleanup duplicates",
-        variant: "destructive",
-      });
-    },
-  });
 
   // Update template mutation
   const updateTemplateMutation = useMutation({
@@ -513,25 +488,6 @@ export default function Templates() {
         >
           <Plus className="h-5 w-5 mr-2" />
           Create New Sequence of Templates
-        </Button>
-        <Button
-          onClick={() => cleanupDuplicatesMutation.mutate()}
-          disabled={cleanupDuplicatesMutation.isPending}
-          size="lg"
-          variant="outline"
-          className="text-base px-6 py-5 shadow-md hover:shadow-lg transition-all"
-        >
-          {cleanupDuplicatesMutation.isPending ? (
-            <>
-              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-              Cleaning...
-            </>
-          ) : (
-            <>
-              <Trash2 className="h-5 w-5 mr-2" />
-              Clean Up Duplicates
-            </>
-          )}
         </Button>
       </div>
 
