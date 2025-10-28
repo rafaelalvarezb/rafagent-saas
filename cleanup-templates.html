@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpiar Templates Duplicados - RafAgent</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            background-color: #f8f9fa;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .info {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpiar Templates Duplicados - RafAgent</h1>
+        
+        <div class="step">
+            <h3>Paso 1: Obtener Token de Autenticación</h3>
+            <p>Primero necesitamos obtener un token válido para acceder al backend.</p>
+            <button onclick="getAuthToken()">Obtener Token</button>
+            <div id="tokenResult"></div>
+        </div>
+
+        <div class="step">
+            <h3>Paso 2: Limpiar Templates Duplicados</h3>
+            <p>Una vez que tengas el token, puedes limpiar los templates duplicados.</p>
+            <button onclick="cleanupDuplicates()" id="cleanupBtn" disabled>Limpiar Duplicados</button>
+            <div id="cleanupResult"></div>
+        </div>
+
+        <div class="step">
+            <h3>Paso 3: Verificar Resultado</h3>
+            <p>Después de limpiar, verifica que solo tengas una ficha de cada template.</p>
+            <button onclick="checkResult()">Verificar Resultado</button>
+            <div id="checkResult"></div>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let authToken = null;
+        const BACKEND_URL = 'https://rafagent-engine-production.up.railway.app';
+
+        async function getAuthToken() {
+            const tokenResult = document.getElementById('tokenResult');
+            tokenResult.innerHTML = '<div class="info">Obteniendo token...</div>';
+            
+            try {
+                // Intentar obtener el token del localStorage del frontend
+                const frontendUrl = 'https://rafagent-saas-5cca3ovve-rafael-alvarezs-projects-43d604b9.vercel.app';
+                
+                // Crear un iframe para acceder al localStorage del frontend
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = frontendUrl;
+                document.body.appendChild(iframe);
+                
+                iframe.onload = function() {
+                    try {
+                        const token = iframe.contentWindow.localStorage.getItem('authToken');
+                        if (token) {
+                            authToken = token;
+                            tokenResult.innerHTML = '<div class="success">✅ Token obtenido exitosamente</div>';
+                            document.getElementById('cleanupBtn').disabled = false;
+                        } else {
+                            tokenResult.innerHTML = '<div class="error">❌ No se encontró token en el frontend</div>';
+                        }
+                    } catch (e) {
+                        tokenResult.innerHTML = '<div class="error">❌ Error al acceder al token: ' + e.message + '</div>';
+                    }
+                    document.body.removeChild(iframe);
+                };
+                
+            } catch (error) {
+                tokenResult.innerHTML = '<div class="error">❌ Error: ' + error.message + '</div>';
+            }
+        }
+
+        async function cleanupDuplicates() {
+            if (!authToken) {
+                document.getElementById('cleanupResult').innerHTML = '<div class="error">❌ Primero necesitas obtener un token</div>';
+                return;
+            }
+
+            const cleanupResult = document.getElementById('cleanupResult');
+            cleanupResult.innerHTML = '<div class="info">Limpiando duplicados...</div>';
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/diagnostic/create-defaults`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    cleanupResult.innerHTML = '<div class="success">✅ Templates duplicados limpiados exitosamente!</div>';
+                    document.getElementById('result').innerHTML = `
+                        <h3>Resultado de la Limpieza:</h3>
+                        <p><strong>Estado:</strong> ${data.message || 'Limpieza completada'}</p>
+                        <p><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
+                    `;
+                } else {
+                    cleanupResult.innerHTML = '<div class="error">❌ Error: ' + (data.error || 'Error desconocido') + '</div>';
+                }
+            } catch (error) {
+                cleanupResult.innerHTML = '<div class="error">❌ Error de conexión: ' + error.message + '</div>';
+            }
+        }
+
+        async function checkResult() {
+            const checkResult = document.getElementById('checkResult');
+            checkResult.innerHTML = '<div class="info">Verificando resultado...</div>';
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/templates`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const templates = await response.json();
+
+                if (response.ok) {
+                    // Agrupar templates por nombre
+                    const templateGroups = {};
+                    templates.forEach(template => {
+                        if (!templateGroups[template.templateName]) {
+                            templateGroups[template.templateName] = [];
+                        }
+                        templateGroups[template.templateName].push(template);
+                    });
+
+                    let resultHtml = '<h4>Estado de los Templates:</h4>';
+                    let hasDuplicates = false;
+
+                    Object.keys(templateGroups).forEach(templateName => {
+                        const count = templateGroups[templateName].length;
+                        if (count > 1) {
+                            hasDuplicates = true;
+                            resultHtml += `<p class="error">❌ ${templateName}: ${count} duplicados</p>`;
+                        } else {
+                            resultHtml += `<p class="success">✅ ${templateName}: 1 template</p>`;
+                        }
+                    });
+
+                    if (!hasDuplicates) {
+                        resultHtml += '<div class="success"><strong>🎉 ¡Perfecto! No hay duplicados.</strong></div>';
+                    } else {
+                        resultHtml += '<div class="error"><strong>⚠️ Aún hay duplicados. Intenta limpiar nuevamente.</strong></div>';
+                    }
+
+                    checkResult.innerHTML = resultHtml;
+                } else {
+                    checkResult.innerHTML = '<div class="error">❌ Error al verificar templates</div>';
+                }
+            } catch (error) {
+                checkResult.innerHTML = '<div class="error">❌ Error de conexión: ' + error.message + '</div>';
+            }
+        }
+    </script>
+</body>
+</html>
