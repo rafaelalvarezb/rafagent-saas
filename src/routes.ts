@@ -12,6 +12,7 @@ import { runAgent } from "./automation/agent";
 import { createDefaultTemplates, createDefaultUserConfig } from "./automation/defaultTemplates";
 import { isWithinWorkingHours, getWorkingHoursFromConfig, debugWorkingHours } from "./utils/workingHours";
 import { ensureCurrentUserDefaults } from "./utils/ensureDefaults";
+import { emitProspectStatusChange, emitProspectUpdate } from "./services/websocket";
 
 /**
  * Get template name for touchpoint number
@@ -271,6 +272,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   lastContactDate: new Date()
                 });
 
+                // Emit WebSocket update for status change
+                emitProspectStatusChange(userId, prospect.id, 'following_up');
+                emitProspectUpdate(userId, prospect);
+
                 await storage.createActivityLog({
                   userId,
                   prospectId: prospect.id,
@@ -335,6 +340,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const prospect = await storage.updateProspect(req.params.id, req.body);
+      
+      // Emit WebSocket update for status changes
+      if (req.body.status) {
+        emitProspectStatusChange(userId, prospect.id, req.body.status);
+      }
+      emitProspectUpdate(userId, prospect);
+      
       res.json(prospect);
     } catch (error: any) {
       console.error('Error updating prospect:', error);
