@@ -238,9 +238,8 @@ export default function Prospects() {
   // Toggle send sequence
   const toggleSequenceMutation = useMutation({
     mutationFn: async ({ id, sendSequence }: { id: string; sendSequence: boolean }) => {
-      const response = await fetch(`/api/prospects/${id}`, {
+      const response = await apiCall(`/prospects/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sendSequence }),
       });
       if (!response.ok) throw new Error("Failed to update prospect");
@@ -248,13 +247,24 @@ export default function Prospects() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["prospects"] });
+      toast({
+        title: "Sequence updated",
+        description: "Prospect sequence status has been updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
   // Send initial email
   const sendInitialMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/prospects/${id}/send-initial`, {
+      const response = await apiCall(`/prospects/${id}/send-initial`, {
         method: "POST",
       });
       if (!response.ok) throw new Error("Failed to send initial email");
@@ -279,9 +289,8 @@ export default function Prospects() {
   // Update prospect
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Prospect> }) => {
-      const response = await fetch(`/api/prospects/${id}`, {
+      const response = await apiCall(`/prospects/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) throw new Error("Failed to update prospect");
@@ -308,7 +317,7 @@ export default function Prospects() {
   // Delete prospect
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/prospects/${id}`, {
+      const response = await apiCall(`/prospects/${id}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Failed to delete prospect");
