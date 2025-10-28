@@ -65,9 +65,19 @@ export async function createDefaultTemplates(userId: string): Promise<void> {
     return;
   }
   
-  // Then create templates linked to this sequence
+  // Then create templates linked to this sequence (only if they don't exist)
+  const existingTemplates = await storage.getTemplatesBySequence(standardSequence.id);
+  
   for (let i = 0; i < DEFAULT_TEMPLATES.length; i++) {
     const template = DEFAULT_TEMPLATES[i];
+    
+    // Check if template already exists
+    const existingTemplate = existingTemplates.find(t => t.templateName === template.templateName);
+    if (existingTemplate) {
+      console.log(`Template ${template.templateName} already exists, skipping`);
+      continue;
+    }
+    
     try {
       await storage.createTemplate({
         ...template,
@@ -75,6 +85,7 @@ export async function createDefaultTemplates(userId: string): Promise<void> {
         sequenceId: standardSequence.id,
         orderIndex: i
       });
+      console.log(`Created template ${template.templateName}`);
     } catch (error) {
       console.error(`Error creating template ${template.templateName}:`, error);
     }

@@ -89,6 +89,14 @@ export async function runAgent(userId: string): Promise<ProcessResult> {
           continue;
         }
 
+        // Case 1.5: Prospect is waiting for working hours - check if we should send now
+        if (prospect.status === 'waiting_working_hours' || prospect.status === 'WAITING FOR WORKING HOURS') {
+          console.log(`   ✅ Sending INITIAL email (was waiting for working hours, now within hours)`);
+          await sendInitialEmail(user, prospect);
+          result.emailsSent++;
+          continue;
+        }
+
         // Case 2: Check if we should send follow-up
         if (prospect.touchpointsSent < numberOfTouchpoints) {
           const daysSinceLastContact = getDaysSince(prospect.lastContactDate);

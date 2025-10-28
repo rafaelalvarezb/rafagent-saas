@@ -1162,16 +1162,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = getCurrentUserId(req)!;
       console.log(`Creating default sequences and templates for user ${userId}`);
       
+      // First, clean up any existing duplicates
+      const sequences = await storage.getSequencesByUser(userId);
+      
+      for (const sequence of sequences) {
+        const templates = await storage.getTemplatesBySequence(sequence.id);
+        
+        // Group templates by templateName
+        const templateGroups = templates.reduce((groups: any, template: any) => {
+          const name = template.templateName;
+          if (!groups[name]) {
+            groups[name] = [];
+          }
+          groups[name].push(template);
+          return groups;
+        }, {});
+        
+        // For each group with duplicates, keep only the first one
+        for (const [templateName, templateList] of Object.entries(templateGroups)) {
+          if ((templateList as any[]).length > 1) {
+            console.log(`Found ${(templateList as any[]).length} duplicates for ${templateName} in sequence ${sequence.name}`);
+            
+            // Sort by createdAt to keep the oldest one
+            (templateList as any[]).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            
+            // Delete all except the first one
+            for (let i = 1; i < (templateList as any[]).length; i++) {
+              await storage.deleteTemplate((templateList as any[])[i].id);
+              console.log(`Deleted duplicate template ${templateName} #${i + 1}`);
+            }
+          }
+        }
+      }
+      
       // Create default templates and config
       await createDefaultTemplates(userId);
       await createDefaultUserConfig(userId);
       
       res.json({ 
         success: true, 
-        message: 'Default sequences and templates created successfully' 
+        message: 'Default sequences and templates created successfully, duplicates cleaned up' 
       });
     } catch (error: any) {
       console.error('Error creating defaults:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/diagnostic/cleanup-duplicates", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req)!;
+      console.log(`Cleaning up duplicate templates for user ${userId}`);
+      
+      // Get all sequences for the user
+      const sequences = await storage.getSequencesByUser(userId);
+      
+      for (const sequence of sequences) {
+        // Get all templates for this sequence
+        const templates = await storage.getTemplatesBySequence(sequence.id);
+        
+        // Group templates by templateName
+        const templateGroups = templates.reduce((groups: any, template: any) => {
+          const name = template.templateName;
+          if (!groups[name]) {
+            groups[name] = [];
+          }
+          groups[name].push(template);
+          return groups;
+        }, {});
+        
+        // For each group with duplicates, keep only the first one
+        for (const [templateName, templateList] of Object.entries(templateGroups)) {
+          if ((templateList as any[]).length > 1) {
+            console.log(`Found ${(templateList as any[]).length} duplicates for ${templateName} in sequence ${sequence.name}`);
+            
+            // Sort by createdAt to keep the oldest one
+            (templateList as any[]).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            
+            // Delete all except the first one
+            for (let i = 1; i < (templateList as any[]).length; i++) {
+              await storage.deleteTemplate((templateList as any[])[i].id);
+              console.log(`Deleted duplicate template ${templateName} #${i + 1}`);
+            }
+          }
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Duplicate templates cleaned up successfully' 
+      });
+    } catch (error: any) {
+      console.error('Error cleaning up duplicates:', error);
       res.status(500).json({ error: error.message });
     }
   });
