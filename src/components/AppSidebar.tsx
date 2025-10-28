@@ -24,6 +24,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ConnectionStatus } from "@/components/ConnectionStatus";
 
 const menuItems = [
   {
@@ -65,8 +66,13 @@ export function AppSidebar() {
     <Sidebar data-testid="sidebar-main">
       <SidebarHeader className="border-b">
         <div className="px-4 py-4">
-          <h2 className="text-lg font-bold">RafAgent</h2>
-          <p className="text-xs text-muted-foreground">AI-Powered Sales</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold">RafAgent</h2>
+              <p className="text-xs text-muted-foreground">AI-Powered Sales</p>
+            </div>
+            <ConnectionStatus />
+          </div>
         </div>
       </SidebarHeader>
 
