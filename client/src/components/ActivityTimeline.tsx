@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Phone, Calendar, MessageSquare, Eye, Reply } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useQuery } from "@tanstack/react-query";
+import { apiCall } from "@/lib/api";
 
 interface TimelineItem {
   id: string;
@@ -47,7 +48,7 @@ export function ActivityTimeline() {
   const { data: prospects, isLoading } = useQuery<Prospect[]>({
     queryKey: ["prospects"],
     queryFn: async () => {
-      const response = await fetch("/api/prospects");
+      const response = await apiCall("/prospects");
       if (!response.ok) throw new Error("Failed to fetch prospects");
       return response.json();
     },

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Send, Eye, MessageCircle, Calendar, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { apiCall } from "@/lib/api";
 
 interface StatCardProps {
   title: string;
@@ -37,7 +38,7 @@ export function DashboardStats() {
   const { data: analytics, isLoading } = useQuery<Analytics>({
     queryKey: ["analytics"],
     queryFn: async () => {
-      const response = await fetch("/api/analytics");
+      const response = await apiCall("/analytics");
       if (!response.ok) throw new Error("Failed to fetch analytics");
       return response.json();
     },
