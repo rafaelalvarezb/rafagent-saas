@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { apiCall } from "@/lib/api";
 
 interface UserConfig {
   id: string;
@@ -53,7 +54,7 @@ export default function Configuration() {
   const { data: userConfig, isLoading } = useQuery<UserConfig>({
     queryKey: ["user-config"],
     queryFn: async () => {
-      const response = await fetch("/api/config");
+      const response = await apiCall("/config");
       if (!response.ok) throw new Error("Failed to fetch user config");
       return response.json();
     },
@@ -81,9 +82,8 @@ export default function Configuration() {
   // Update user config
   const updateMutation = useMutation({
     mutationFn: async (data: Partial<UserConfig>) => {
-      const response = await fetch("/api/config", {
+      const response = await apiCall("/config", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) throw new Error("Failed to update configuration");

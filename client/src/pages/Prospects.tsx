@@ -79,6 +79,7 @@ import {
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/StatusBadge";
+import { apiCall } from "@/lib/api";
 
 interface Prospect {
   id: string;
@@ -169,7 +170,7 @@ export default function Prospects() {
   const { data: sequences = [] } = useQuery<Sequence[]>({
     queryKey: ["sequences"],
     queryFn: async () => {
-      const response = await fetch("/api/sequences");
+      const response = await apiCall("/sequences");
       if (!response.ok) throw new Error("Failed to fetch sequences");
       return response.json();
     },
@@ -182,7 +183,7 @@ export default function Prospects() {
   const { data: prospects = [], isLoading } = useQuery<Prospect[]>({
     queryKey: ["prospects"],
     queryFn: async () => {
-      const response = await fetch("/api/prospects");
+      const response = await apiCall("/prospects");
       if (!response.ok) throw new Error("Failed to fetch prospects");
       return response.json();
     },
@@ -192,7 +193,7 @@ export default function Prospects() {
   const { data: templates = [] } = useQuery<Template[]>({
     queryKey: ["templates"],
     queryFn: async () => {
-      const response = await fetch("/api/templates");
+      const response = await apiCall("/templates");
       if (!response.ok) throw new Error("Failed to fetch templates");
       return response.json();
     },
@@ -201,9 +202,8 @@ export default function Prospects() {
   // Create prospect
   const createMutation = useMutation({
     mutationFn: async (data: typeof newProspect & { sequenceId?: string }) => {
-      const response = await fetch("/api/prospects", {
+      const response = await apiCall("/prospects", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) throw new Error("Failed to create prospect");
@@ -334,7 +334,7 @@ export default function Prospects() {
   // Execute AI Agent
   const executeAgentMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/agent/run", {
+      const response = await apiCall("/agent/run", {
         method: "POST",
       });
       if (!response.ok) throw new Error("Failed to execute agent");
@@ -361,9 +361,8 @@ export default function Prospects() {
   // Bulk import prospects
   const bulkImportMutation = useMutation({
     mutationFn: async ({ prospects, sequenceId }: { prospects: any[], sequenceId?: string }) => {
-      const response = await fetch("/api/prospects/bulk", {
+      const response = await apiCall("/prospects/bulk", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prospects, sequenceId }),
       });
       if (!response.ok) throw new Error("Failed to import prospects");

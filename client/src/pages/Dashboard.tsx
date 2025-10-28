@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink, UserPlus, Mail, Calendar, BarChart3, Settings, Play, Eye, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
+import { apiCall } from "@/lib/api";
 
 interface Prospect {
   id: string;
@@ -26,7 +27,7 @@ export default function Dashboard() {
   const { data: prospects = [] } = useQuery<Prospect[]>({
     queryKey: ["prospects"],
     queryFn: async () => {
-      const response = await fetch("/api/prospects");
+      const response = await apiCall("/prospects");
       if (!response.ok) throw new Error("Failed to fetch prospects");
       return response.json();
     },
