@@ -245,19 +245,26 @@ export async function getAvailableSlots(
       
       console.log(`🕐 Working hours in user timezone: ${dayStartInUserTz.toLocaleString()} to ${dayEndInUserTz.toLocaleString()} (${timezone})`);
       
-      // Convert to UTC for Google Calendar API using proper timezone conversion
-      // For Mexico City (UTC-6), we need to add 6 hours to get UTC
-      const timezoneOffset = getTimezoneOffset(timezone, dayStartInUserTz);
-      const dayStartUTC = new Date(dayStartInUserTz.getTime() - (timezoneOffset * 60000));
-      const dayEndUTC = new Date(dayEndInUserTz.getTime() - (timezoneOffset * 60000));
+      // Convert to UTC for Google Calendar API using a more reliable method
+      // Create a date in the user's timezone, then convert to UTC
+      const dayStartUTC = new Date(dayStartInUserTz.toLocaleString("en-US", { timeZone: "UTC" }));
+      const dayEndUTC = new Date(dayEndInUserTz.toLocaleString("en-US", { timeZone: "UTC" }));
       
-      console.log(`🕐 Timezone offset: ${timezoneOffset} minutes`);
       console.log(`🕐 User time: ${dayStartInUserTz.toLocaleString()} -> UTC: ${dayStartUTC.toISOString()}`);
       console.log(`🕐 User time: ${dayEndInUserTz.toLocaleString()} -> UTC: ${dayEndUTC.toISOString()}`);
       
       // Verify the conversion is correct
       const testConversion = new Date(dayStartUTC.toLocaleString("en-US", { timeZone: timezone }));
       console.log(`🕐 Verification: UTC ${dayStartUTC.toISOString()} -> User: ${testConversion.toLocaleString()} (${timezone})`);
+      
+      // Additional verification: check if the conversion makes sense
+      const expectedHour = workStartHour;
+      const actualHour = testConversion.getHours();
+      if (actualHour !== expectedHour) {
+        console.log(`⚠️ WARNING: Expected ${expectedHour}:00 but got ${actualHour}:00 - conversion may be incorrect`);
+      } else {
+        console.log(`✅ Conversion verified: ${actualHour}:00 matches expected ${expectedHour}:00`);
+      }
       
       let slotTime = new Date(dayStartUTC);
       let slotsAddedForThisDay = 0;
