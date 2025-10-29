@@ -69,8 +69,13 @@ export async function sendEmail(
   // console.log('Formatted body:', formattedBody);
   
   // Add pixel tracking if prospectId is provided
+  // Use Railway URL for production, localhost for development
+  const baseUrl = process.env.NODE_ENV === 'production' 
+    ? 'https://rafagent-engine-production.up.railway.app'
+    : (process.env.BASE_URL || 'http://localhost:3000');
+  
   const pixelTracking = prospectId 
-    ? `<img src="${process.env.BASE_URL || 'http://localhost:3000'}/api/pixel/${prospectId}" width="1" height="1" style="display:none;" />`
+    ? `<img src="${baseUrl}/api/pixel/${prospectId}" width="1" height="1" style="display:none;" />`
     : '';
   
   // DEBUG: Log pixel tracking

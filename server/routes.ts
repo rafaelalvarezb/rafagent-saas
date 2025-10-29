@@ -617,13 +617,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/prospects/:id/send-followup", async (req, res) => {
+  app.post("/api/prospects/:id/send-followup", requireAuth, async (req, res) => {
     try {
-      const userId = "temp-user-id";
+      const userId = getCurrentUserId(req)!;
       const prospect = await storage.getProspect(req.params.id);
       
       if (!prospect) {
         return res.status(404).json({ error: "Prospect not found" });
+      }
+
+      if (prospect.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
       }
 
       if (!prospect.threadId) {
@@ -642,6 +646,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const user = await storage.getUser(userId);
+      if (!user?.googleAccessToken) {
+        return res.status(400).json({ error: "Google account not connected" });
+      }
+
       const body = replaceTemplateVariables(template.body, {
         externalCid: prospect.externalCid || '',
         contactName: prospect.contactName,
@@ -661,7 +669,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const htmlBody = body.replace(/\n/g, '<br>');
-      await sendEmail(prospect.contactEmail, subject, htmlBody, prospect.threadId);
+      await sendEmail(
+        user.googleAccessToken,
+        prospect.contactEmail,
+        subject,
+        htmlBody,
+        prospect.threadId,
+        user.googleRefreshToken,
+        userId
+      );
 
       await storage.updateProspect(prospect.id, {
         status: 'Following up',
@@ -688,18 +704,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/prospects/:id/analyze-response", async (req, res) => {
+  app.post("/api/prospects/:id/analyze-response", requireAuth, async (req, res) => {
     try {
-      const userId = "temp-user-id";
+      const userId = getCurrentUserId(req)!;
       const prospect = await storage.getProspect(req.params.id);
       
-      if (!prospect || !prospect.threadId) {
-        return res.status(404).json({ error: "Prospect or thread not found" });
+      if (!prospect) {
+        return res.status(404).json({ error: "Prospect not found" });
+      }
+
+      if (prospect.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (!prospect.threadId) {
+        return res.status(400).json({ error: "No thread ID found" });
       }
 
       await storage.updateProspect(prospect.id, { status: '🧐 Analyzing response...' });
 
-      const messages = await getThreadMessages(prospect.threadId);
+      const user = await storage.getUser(userId);
+      if (!user?.googleAccessToken) {
+        return res.status(400).json({ error: "Google account not connected" });
+      }
+
+      const messages = await getThreadMessages(user.googleAccessToken, prospect.threadId, user.googleRefreshToken, userId);
       if (messages.length === 0) {
         throw new Error("No messages found in thread");
       }
@@ -775,13 +804,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/prospects/:id/schedule-meeting", async (req, res) => {
+  app.post("/api/prospects/:id/schedule-meeting", requireAuth, async (req, res) => {
     try {
-      const userId = "temp-user-id";
+      const userId = getCurrentUserId(req)!;
       const prospect = await storage.getProspect(req.params.id);
       
       if (!prospect) {
         return res.status(404).json({ error: "Prospect not found" });
+      }
+
+      if (prospect.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
       }
 
       await storage.updateProspect(prospect.id, { status: '🤖 Creating event...' });
@@ -811,11 +844,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       searchEndDate.setDate(searchEndDate.getDate() + 30);
 
       const availableSlots = await getAvailableSlots(
+        user?.googleAccessToken || '',
         searchStartDate,
         searchEndDate,
         workStartHour,
         workEndHour,
-        user?.timezone || 'America/Mexico_City'
+        user?.timezone || 'America/Mexico_City',
+        user?.googleRefreshToken,
+        config.workingDays?.split(',')
       );
 
       const preferredDays = prospect.suggestedDays?.split(',').map(d => d.trim());
@@ -864,7 +900,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         title: title || `${prospect.companyName || 'Meeting'} & Google`,
         description: description || '',
         startTime: selectedSlot,
-        endTime: endTime
+        endTime: endTime,
+        accessToken: user?.googleAccessToken || '',
+        refreshToken: user?.googleRefreshToken
       });
 
       await storage.updateProspect(prospect.id, {
