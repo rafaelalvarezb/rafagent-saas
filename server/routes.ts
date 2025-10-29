@@ -827,7 +827,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const workStartHour = parseInt(config.searchStartTime?.split(':')[0] || '9');
-      const workEndHour = parseInt(config.searchEndTime?.split(':')[0] || '17');
+      const workEndHour = parseInt(config.searchEndTime?.split(':')[0] || '23');
+      
+      console.log(`🔧 User config - Start: ${config.searchStartTime}, End: ${config.searchEndTime}`);
+      console.log(`🕐 Parsed hours - Start: ${workStartHour}, End: ${workEndHour}`);
 
       let searchStartDate = new Date();
       searchStartDate.setHours(searchStartDate.getHours() + 24);
@@ -842,6 +845,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const searchEndDate = new Date(searchStartDate);
       searchEndDate.setDate(searchEndDate.getDate() + 30);
+      
+      console.log(`📅 Search period: ${searchStartDate.toISOString()} to ${searchEndDate.toISOString()}`);
+      console.log(`📅 Search period (user timezone): ${searchStartDate.toLocaleString("en-US", { timeZone: user?.timezone || 'America/Mexico_City' })} to ${searchEndDate.toLocaleString("en-US", { timeZone: user?.timezone || 'America/Mexico_City' })}`);
 
       const availableSlots = await getAvailableSlots(
         user?.googleAccessToken || '',
@@ -855,6 +861,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       const preferredDays = prospect.suggestedDays?.split(',').map(d => d.trim());
+      console.log(`🎯 Prospect preferences - Days: ${preferredDays}, Time: ${prospect.suggestedTime}, Week: ${prospect.suggestedWeek}`);
+      console.log(`📊 Available slots count: ${availableSlots.length}`);
+      
       const selectedSlot = findNextAvailableSlot(
         availableSlots,
         preferredDays,
@@ -866,6 +875,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!selectedSlot) {
         throw new Error("No available slots found in the configured time range");
       }
+      
+      console.log(`✅ Selected slot: ${selectedSlot.toISOString()}`);
+      console.log(`✅ Selected slot (user timezone): ${selectedSlot.toLocaleString("en-US", { timeZone: user?.timezone || 'America/Mexico_City' })}`);
 
       const endTime = new Date(selectedSlot.getTime() + 30 * 60000);
 
