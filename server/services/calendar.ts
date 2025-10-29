@@ -231,15 +231,19 @@ export async function getAvailableSlots(
       const month = currentDate.getMonth();
       const date = currentDate.getDate();
       
+      console.log(`📅 Checking ${currentDate.toDateString()} (day ${dayOfWeek})`);
+      
       // Create start and end times in the user's timezone
       const dayStartInUserTz = new Date(year, month, date, workStartHour, 0, 0, 0);
       const dayEndInUserTz = new Date(year, month, date, workEndHour, 0, 0, 0);
       
-      console.log(`📅 Checking ${currentDate.toDateString()}: ${dayStartInUserTz.toLocaleString()} to ${dayEndInUserTz.toLocaleString()} (${timezone})`);
+      console.log(`🕐 Working hours in user timezone: ${dayStartInUserTz.toLocaleString()} to ${dayEndInUserTz.toLocaleString()} (${timezone})`);
       
       // Convert to UTC for Google Calendar API
-      const dayStartUTC = new Date(dayStartInUserTz.toLocaleString("en-US", { timeZone: "UTC" }));
-      const dayEndUTC = new Date(dayEndInUserTz.toLocaleString("en-US", { timeZone: "UTC" }));
+      // For Mexico City (UTC-6), we need to add 6 hours to get UTC
+      const timezoneOffset = getTimezoneOffset(timezone, dayStartInUserTz);
+      const dayStartUTC = new Date(dayStartInUserTz.getTime() - (timezoneOffset * 60000));
+      const dayEndUTC = new Date(dayEndInUserTz.getTime() - (timezoneOffset * 60000));
       
       console.log(`🕐 UTC times: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
       
@@ -263,6 +267,8 @@ export async function getAvailableSlots(
         
         slotTime.setMinutes(slotTime.getMinutes() + 30);
       }
+    } else {
+      console.log(`⏭️ Skipping ${currentDate.toDateString()} (day ${dayOfWeek}) - not a working day`);
     }
     
     currentDate.setDate(currentDate.getDate() + 1);
