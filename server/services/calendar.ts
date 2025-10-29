@@ -107,40 +107,32 @@ function convertToUserTimezone(date: Date, fromTimezone: string, toTimezone: str
  */
 function getTimezoneOffset(timezone: string, date: Date): number {
   try {
-    // Use Intl.DateTimeFormat to get the actual timezone offset
-    const formatter = new Intl.DateTimeFormat('en', {
-      timeZone: timezone,
-      timeZoneName: 'longOffset'
-    });
+    // Get the offset for the target timezone in minutes
+    const utcDate = new Date(date.toISOString());
+    const localOffset = utcDate.getTimezoneOffset(); // Local timezone offset in minutes
     
-    const parts = formatter.formatToParts(date);
-    const offsetPart = parts.find(part => part.type === 'timeZoneName');
+    // Create a date in the target timezone to get its offset
+    const targetDate = new Date(utcDate.toLocaleString("en-US", { timeZone: timezone }));
+    const targetOffset = targetDate.getTimezoneOffset();
     
-    if (offsetPart) {
-      // Parse offset like "GMT-06:00" or "GMT+01:00"
-      const offsetMatch = offsetPart.value.match(/GMT([+-])(\d{2}):(\d{2})/);
-      if (offsetMatch) {
-        const sign = offsetMatch[1] === '+' ? 1 : -1;
-        const hours = parseInt(offsetMatch[2]);
-        const minutes = parseInt(offsetMatch[3]);
-        return sign * (hours * 60 + minutes);
-      }
-    }
+    // Calculate the difference in minutes
+    const diff = localOffset - targetOffset;
+    
+    return diff;
   } catch (error) {
-    console.warn(`Failed to get timezone offset for ${timezone}:`, error);
+    console.error('Error getting timezone offset:', error);
+    // Fallback to known timezones
+    const timezoneOffsets: Record<string, number> = {
+      'America/Mexico_City': -360, // UTC-6
+      'America/New_York': -300,    // UTC-5 (EST) / -240 (EDT)
+      'America/Los_Angeles': -480, // UTC-8 (PST) / -420 (PDT)
+      'Europe/London': 0,          // UTC+0 (GMT) / 60 (BST)
+      'Europe/Paris': 60,          // UTC+1 (CET) / 120 (CEST)
+      'America/Argentina/Buenos_Aires': -180, // UTC-3
+    };
+    
+    return timezoneOffsets[timezone] || -360; // Default to Mexico City
   }
-  
-  // Fallback to known timezones
-  const timezoneOffsets: Record<string, number> = {
-    'America/Mexico_City': -360, // UTC-6
-    'America/New_York': -300,    // UTC-5 (EST) / -240 (EDT)
-    'America/Los_Angeles': -480, // UTC-8 (PST) / -420 (PDT)
-    'Europe/London': 0,          // UTC+0 (GMT) / 60 (BST)
-    'Europe/Paris': 60,          // UTC+1 (CET) / 120 (CEST)
-    'America/Argentina/Buenos_Aires': -180, // UTC-3
-  };
-  
-  return timezoneOffsets[timezone] || -360; // Default to Mexico City
 }
 
 /**
@@ -325,19 +317,23 @@ export async function getAvailableSlots(
       const month = currentDate.getMonth();
       const date = currentDate.getDate();
       
-      // Create dates in user's timezone using proper timezone conversion
-      const dayStartInUserTz = createDateInTimezone(year, month, date, workStartHour, 0, 0, timezone);
-      const dayEndInUserTz = createDateInTimezone(year, month, date, workEndHour, 0, 0, timezone);
+      // Create dates in user's timezone - SIMPLIFIED APPROACH
+      // Create a date string in the user's timezone and parse it correctly
+      const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+      const timeStringStart = `${String(workStartHour).padStart(2, '0')}:00:00`;
+      const timeStringEnd = `${String(workEndHour).padStart(2, '0')}:00:00`;
+      
+      // Create dates in the user's timezone using a more reliable method
+      const dayStartInUserTz = new Date(`${dateString}T${timeStringStart}`);
+      const dayEndInUserTz = new Date(`${dateString}T${timeStringEnd}`);
+      
+      // Apply timezone offset manually
+      const timezoneOffset = getTimezoneOffset(timezone, dayStartInUserTz);
+      const dayStartUTC = new Date(dayStartInUserTz.getTime() - (timezoneOffset * 60000));
+      const dayEndUTC = new Date(dayEndInUserTz.getTime() - (timezoneOffset * 60000));
       
       console.log(`🕐 Working hours in user timezone: ${dayStartInUserTz.toLocaleString()} to ${dayEndInUserTz.toLocaleString()} (${timezone})`);
-      
-      // Convert to UTC for Google Calendar API using proper timezone conversion
-      // Create dates in UTC by using the timezone offset
-      const dayStartUTC = new Date(dayStartInUserTz.getTime() - (dayStartInUserTz.getTimezoneOffset() * 60000));
-      const dayEndUTC = new Date(dayEndInUserTz.getTime() - (dayEndInUserTz.getTimezoneOffset() * 60000));
-      
-      console.log(`🕐 User time: ${dayStartInUserTz.toLocaleString()} -> UTC: ${dayStartUTC.toISOString()}`);
-      console.log(`🕐 User time: ${dayEndInUserTz.toLocaleString()} -> UTC: ${dayEndUTC.toISOString()}`);
+      console.log(`🕐 Working hours in UTC: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
       
       // Verify the conversion is correct
       const testConversion = new Date(dayStartUTC.toLocaleString("en-US", { timeZone: timezone }));
