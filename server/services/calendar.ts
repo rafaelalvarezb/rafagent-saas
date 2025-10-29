@@ -105,34 +105,35 @@ function convertToUserTimezone(date: Date, fromTimezone: string, toTimezone: str
 /**
  * Get timezone offset in minutes using proper timezone detection
  */
-function getTimezoneOffset(timezone: string, date: Date): number {
-  try {
-    // Get the offset for the target timezone in minutes
-    const utcDate = new Date(date.toISOString());
-    const localOffset = utcDate.getTimezoneOffset(); // Local timezone offset in minutes
-    
-    // Create a date in the target timezone to get its offset
-    const targetDate = new Date(utcDate.toLocaleString("en-US", { timeZone: timezone }));
-    const targetOffset = targetDate.getTimezoneOffset();
-    
-    // Calculate the difference in minutes
-    const diff = localOffset - targetOffset;
-    
-    return diff;
-  } catch (error) {
-    console.error('Error getting timezone offset:', error);
-    // Fallback to known timezones
-    const timezoneOffsets: Record<string, number> = {
-      'America/Mexico_City': -360, // UTC-6
-      'America/New_York': -300,    // UTC-5 (EST) / -240 (EDT)
-      'America/Los_Angeles': -480, // UTC-8 (PST) / -420 (PDT)
-      'Europe/London': 0,          // UTC+0 (GMT) / 60 (BST)
-      'Europe/Paris': 60,          // UTC+1 (CET) / 120 (CEST)
-      'America/Argentina/Buenos_Aires': -180, // UTC-3
-    };
-    
-    return timezoneOffsets[timezone] || -360; // Default to Mexico City
-  }
+function getTimezoneOffsetHours(timezone: string): number {
+  // Simplified timezone offset mapping in HOURS
+  const timezoneOffsets: Record<string, number> = {
+    'America/Mexico_City': 6,      // UTC-6
+    'America/New_York': 5,         // UTC-5 (EST) / 4 (EDT)
+    'America/Chicago': 6,          // UTC-6 (CST) / 5 (CDT)
+    'America/Denver': 7,           // UTC-7 (MST) / 6 (MDT)
+    'America/Los_Angeles': 8,      // UTC-8 (PST) / 7 (PDT)
+    'America/Toronto': 5,          // UTC-5 (EST) / 4 (EDT)
+    'America/Vancouver': 8,        // UTC-8 (PST) / 7 (PDT)
+    'Europe/London': 0,            // UTC+0 (GMT) / -1 (BST)
+    'Europe/Paris': -1,            // UTC+1 (CET) / -2 (CEST)
+    'Europe/Madrid': -1,           // UTC+1 (CET) / -2 (CEST)
+    'Europe/Berlin': -1,           // UTC+1 (CET) / -2 (CEST)
+    'Europe/Rome': -1,             // UTC+1 (CET) / -2 (CEST)
+    'Asia/Tokyo': -9,              // UTC+9
+    'Asia/Shanghai': -8,           // UTC+8
+    'Asia/Kolkata': -5.5,          // UTC+5:30
+    'Asia/Singapore': -8,          // UTC+8
+    'Australia/Sydney': -10,       // UTC+10 / -11 (DST)
+    'America/Argentina/Buenos_Aires': 3,  // UTC-3
+    'America/Sao_Paulo': 3,        // UTC-3
+    'America/Santiago': 3,         // UTC-3
+    'America/Bogota': 5,           // UTC-5
+    'America/Lima': 5,             // UTC-5
+    'America/Caracas': 4,          // UTC-4
+  };
+  
+  return timezoneOffsets[timezone] || 6; // Default to Mexico City (UTC-6)
 }
 
 /**
@@ -317,22 +318,21 @@ export async function getAvailableSlots(
       const month = currentDate.getMonth();
       const date = currentDate.getDate();
       
-      // Create dates in user's timezone - SIMPLIFIED APPROACH
-      // Create a date string in the user's timezone and parse it correctly
+      // ULTRA SIMPLIFIED APPROACH - Create dates directly in UTC with timezone offset
       const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
-      const timeStringStart = `${String(workStartHour).padStart(2, '0')}:00:00`;
-      const timeStringEnd = `${String(workEndHour).padStart(2, '0')}:00:00`;
       
-      // Create dates in the user's timezone using a more reliable method
-      const dayStartInUserTz = new Date(`${dateString}T${timeStringStart}`);
-      const dayEndInUserTz = new Date(`${dateString}T${timeStringEnd}`);
+      // Get timezone offset in hours (simplified)
+      const timezoneOffsetHours = getTimezoneOffsetHours(timezone);
       
-      // Apply timezone offset manually
-      const timezoneOffset = getTimezoneOffset(timezone, dayStartInUserTz);
-      const dayStartUTC = new Date(dayStartInUserTz.getTime() - (timezoneOffset * 60000));
-      const dayEndUTC = new Date(dayEndInUserTz.getTime() - (timezoneOffset * 60000));
+      // Create UTC dates by subtracting the timezone offset
+      const dayStartUTC = new Date(`${dateString}T${String(workStartHour).padStart(2, '0')}:00:00.000Z`);
+      const dayEndUTC = new Date(`${dateString}T${String(workEndHour).padStart(2, '0')}:00:00.000Z`);
       
-      console.log(`🕐 Working hours in user timezone: ${dayStartInUserTz.toLocaleString()} to ${dayEndInUserTz.toLocaleString()} (${timezone})`);
+      // Apply timezone offset to convert from user timezone to UTC
+      dayStartUTC.setHours(dayStartUTC.getHours() - timezoneOffsetHours);
+      dayEndUTC.setHours(dayEndUTC.getHours() - timezoneOffsetHours);
+      
+      console.log(`🕐 Working hours in user timezone: ${workStartHour}:00 - ${workEndHour}:00 (${timezone})`);
       console.log(`🕐 Working hours in UTC: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
       
       // Verify the conversion is correct
