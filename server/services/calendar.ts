@@ -302,7 +302,7 @@ export function findNextAvailableSlot(
   preferredWeek?: string,
   userTimezone?: string
 ): Date | null {
-  console.log(`🔍 Finding slot with:`, { 
+  console.log(`🔍 SIMPLIFIED SCHEDULING - Finding slot with:`, { 
     preferredDays, 
     preferredTime, 
     preferredWeek, 
@@ -310,7 +310,10 @@ export function findNextAvailableSlot(
     userTimezone: userTimezone || 'America/Mexico_City'
   });
   
-  if (availableSlots.length === 0) return null;
+  if (availableSlots.length === 0) {
+    console.log(`❌ No available slots found`);
+    return null;
+  }
 
   const timezone = userTimezone || 'America/Mexico_City';
   const dayMap: Record<string, number> = {
@@ -326,9 +329,25 @@ export function findNextAvailableSlot(
   let filteredSlots = availableSlots.filter(slot => slot >= minTime);
   console.log(`📅 After 24h filter: ${filteredSlots.length} slots`);
 
-  // STEP 1: Try to match preferred day(s) if specified
-  let dayFilteredSlots = filteredSlots;
-  let usedFallbackForDay = false;
+  // STEP 1: Convert all slots to user timezone and sort by date
+  const slotsInUserTz = filteredSlots.map(slot => {
+    const slotInUserTz = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
+    return {
+      utc: slot,
+      user: slotInUserTz,
+      dayOfWeek: slotInUserTz.getDay(),
+      hour: slotInUserTz.getHours(),
+      minute: slotInUserTz.getMinutes()
+    };
+  }).sort((a, b) => a.utc.getTime() - b.utc.getTime());
+
+  console.log(`📅 First 5 slots in user timezone:`);
+  slotsInUserTz.slice(0, 5).forEach((slot, index) => {
+    console.log(`  ${index + 1}. ${slot.user.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek}`);
+  });
+
+  // STEP 2: Try to match preferred day(s) if specified
+  let dayFilteredSlots = slotsInUserTz;
   
   if (preferredDays && preferredDays.length > 0) {
     const preferredDayNumbers = preferredDays
@@ -338,18 +357,12 @@ export function findNextAvailableSlot(
     console.log(`🗓️ Preferred day numbers: ${preferredDayNumbers} (${preferredDays.join(', ')})`);
     
     if (preferredDayNumbers.length > 0) {
-      const beforeFilter = filteredSlots.length;
-      
-      // Convert slots to user timezone before checking day of week
-      dayFilteredSlots = filteredSlots.filter(slot => {
-        const slotInUserTz = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
-        const dayOfWeek = slotInUserTz.getDay();
-        const matches = preferredDayNumbers.includes(dayOfWeek);
-        
+      const beforeFilter = slotsInUserTz.length;
+      dayFilteredSlots = slotsInUserTz.filter(slot => {
+        const matches = preferredDayNumbers.includes(slot.dayOfWeek);
         if (matches) {
-          console.log(`✅ Day match: ${slotInUserTz.toLocaleString()} (${timezone}) - day ${dayOfWeek}`);
+          console.log(`✅ Day match: ${slot.user.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek}`);
         }
-        
         return matches;
       });
       
@@ -360,21 +373,18 @@ export function findNextAvailableSlot(
         console.log(`⚠️ No slots available on preferred day(s): ${preferredDays.join(', ')}`);
         console.log(`🔄 FALLBACK: Looking for slots on any weekday (Mon-Fri)`);
         
-        dayFilteredSlots = filteredSlots.filter(slot => {
-          const slotInUserTz = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
-          const day = slotInUserTz.getDay();
-          return day >= 1 && day <= 5; // Monday to Friday
+        dayFilteredSlots = slotsInUserTz.filter(slot => {
+          return slot.dayOfWeek >= 1 && slot.dayOfWeek <= 5; // Monday to Friday
         });
         
         console.log(`📅 After fallback filter (weekdays only): ${dayFilteredSlots.length} slots`);
-        usedFallbackForDay = true;
       } else {
-        console.log(`📅 First 3 matching days: ${dayFilteredSlots.slice(0, 3).map(s => s.toISOString()).join(', ')}`);
+        console.log(`📅 First 3 matching days: ${dayFilteredSlots.slice(0, 3).map(s => s.utc.toISOString()).join(', ')}`);
       }
     }
   }
 
-  // STEP 2: Try to match preferred time if specified
+  // STEP 3: Try to match preferred time if specified
   let timeFilteredSlots = dayFilteredSlots;
   
   if (preferredTime) {
@@ -383,41 +393,30 @@ export function findNextAvailableSlot(
     
     // First try exact match (within 30 minutes)
     let exactMatch = dayFilteredSlots.filter(slot => {
-      const slotInUserTz = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
-      const slotHours = slotInUserTz.getHours();
-      const slotMinutes = slotInUserTz.getMinutes();
-      const isExactMatch = slotHours === hours && Math.abs(slotMinutes - minutes) <= 30;
-      
+      const isExactMatch = slot.hour === hours && Math.abs(slot.minute - minutes) <= 30;
       if (isExactMatch) {
-        console.log(`🎯 Found exact match: ${slotInUserTz.toLocaleString()} (${timezone})`);
+        console.log(`🎯 Found exact match: ${slot.user.toLocaleString()} (${timezone})`);
       }
-      
       return isExactMatch;
     });
     
     console.log(`🎯 Exact time matches: ${exactMatch.length}`);
     if (exactMatch.length > 0) {
-      console.log(`✅ Using exact match: ${exactMatch[0].toISOString()}`);
-      if (usedFallbackForDay) {
-        console.log(`⚠️ Note: Used fallback day (preferred day was not available)`);
-      }
-      return exactMatch[0];
+      console.log(`✅ Using exact match: ${exactMatch[0].utc.toISOString()}`);
+      return exactMatch[0].utc;
     }
     
     // If no exact match, try to find the closest time within 2 hours
     const beforeTimeFilter = dayFilteredSlots.length;
     timeFilteredSlots = dayFilteredSlots.filter(slot => {
-      const slotInUserTz = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
-      const slotHours = slotInUserTz.getHours();
-      const slotMinutes = slotInUserTz.getMinutes();
-      const slotTimeInMinutes = slotHours * 60 + slotMinutes;
+      const slotTimeInMinutes = slot.hour * 60 + slot.minute;
       const preferredTimeInMinutes = hours * 60 + minutes;
       const timeDiff = Math.abs(slotTimeInMinutes - preferredTimeInMinutes);
       
       const isWithinRange = timeDiff <= 120; // Within 2 hours
       
       if (isWithinRange) {
-        console.log(`🕐 Found close match: ${slotInUserTz.toLocaleString()} (${timezone}) - diff: ${timeDiff} minutes`);
+        console.log(`🕐 Found close match: ${slot.user.toLocaleString()} (${timezone}) - diff: ${timeDiff} minutes`);
       }
       
       return isWithinRange;
@@ -427,10 +426,8 @@ export function findNextAvailableSlot(
     
     // Sort by closest to preferred time
     timeFilteredSlots.sort((a, b) => {
-      const aInUserTz = new Date(a.toLocaleString("en-US", { timeZone: timezone }));
-      const bInUserTz = new Date(b.toLocaleString("en-US", { timeZone: timezone }));
-      const aTimeInMinutes = aInUserTz.getHours() * 60 + aInUserTz.getMinutes();
-      const bTimeInMinutes = bInUserTz.getHours() * 60 + bInUserTz.getMinutes();
+      const aTimeInMinutes = a.hour * 60 + a.minute;
+      const bTimeInMinutes = b.hour * 60 + b.minute;
       const preferredTimeInMinutes = hours * 60 + minutes;
       const aDiff = Math.abs(aTimeInMinutes - preferredTimeInMinutes);
       const bDiff = Math.abs(bTimeInMinutes - preferredTimeInMinutes);
@@ -438,16 +435,12 @@ export function findNextAvailableSlot(
     });
   }
 
-  const result = timeFilteredSlots.length > 0 ? timeFilteredSlots[0] : null;
+  const result = timeFilteredSlots.length > 0 ? timeFilteredSlots[0].utc : null;
   console.log(`🎯 Final selected slot: ${result ? result.toISOString() : 'NONE'}`);
   
   if (result) {
     const resultInUserTz = new Date(result.toLocaleString("en-US", { timeZone: timezone }));
     console.log(`🕐 Selected slot in user timezone: ${resultInUserTz.toLocaleString()} (${timezone})`);
-  }
-  
-  if (usedFallbackForDay && result) {
-    console.log(`⚠️ Used fallback logic: preferred day not available, selected ${getDayName(result.getDay())} instead`);
   }
   
   return result;
