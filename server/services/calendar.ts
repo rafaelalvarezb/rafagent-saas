@@ -182,6 +182,9 @@ export async function getAvailableSlots(
   console.log(`🔍 Getting available slots for timezone: ${timezone}`);
   console.log(`📅 Search period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
   console.log(`🕐 Working hours: ${workStartHour}:00 - ${workEndHour}:00`);
+  console.log(`🕐 Server timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+  console.log(`🕐 Server time: ${new Date().toISOString()}`);
+  console.log(`🕐 Server time (user timezone): ${new Date().toLocaleString("en-US", { timeZone: timezone })}`);
   
   // Get busy events from Google Calendar
   const events = await calendar.events.list({
@@ -285,11 +288,13 @@ export async function getAvailableSlots(
   
   // Log first few available slots for debugging
   if (availableSlots.length > 0) {
-    console.log(`🕐 First 3 available slots:`);
-    availableSlots.slice(0, 3).forEach((slot, index) => {
+    console.log(`🕐 First 5 available slots:`);
+    availableSlots.slice(0, 5).forEach((slot, index) => {
       const localTime = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
-      console.log(`  ${index + 1}. ${localTime.toLocaleString()} (${timezone})`);
+      console.log(`  ${index + 1}. UTC: ${slot.toISOString()} -> User: ${localTime.toLocaleString()} (${timezone})`);
     });
+  } else {
+    console.log(`❌ NO AVAILABLE SLOTS FOUND! This is the problem.`);
   }
   
   return availableSlots;
