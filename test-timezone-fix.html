@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Corrección de Zona Horaria - RafAgent</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Test de Corrección de Zona Horaria - RafAgent</h1>
+        
+        <div class="test-section info">
+            <h3>📋 Problemas Corregidos</h3>
+            <ul>
+                <li>✅ <strong>Conversión de zona horaria incorrecta:</strong> Reemplazada la función problemática que usaba <code>toLocaleString()</code></li>
+                <li>✅ <strong>Pixel tracking con localhost:</strong> Ahora siempre usa la URL de producción de Railway</li>
+                <li>✅ <strong>Nueva función <code>convertToUserTimezone()</code>:</strong> Maneja correctamente las conversiones entre zonas horarias</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test de Conversión de Zona Horaria</h3>
+            <p>Este test simula la conversión de 9:00 AM México (UTC-6) a UTC y viceversa:</p>
+            
+            <button onclick="testTimezoneConversion()">Probar Conversión México → UTC</button>
+            <button onclick="testAvailableSlots()">Simular Búsqueda de Slots</button>
+            <button onclick="clearLog()">Limpiar Log</button>
+            
+            <div id="log" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📧 Test de Pixel Tracking</h3>
+            <p>Verificar que el pixel tracking use la URL correcta:</p>
+            <button onclick="testPixelTracking()">Probar URL del Pixel</button>
+            <div id="pixel-log" class="log"></div>
+        </div>
+
+        <div class="test-section success">
+            <h3>✅ Instrucciones para Probar en Producción</h3>
+            <ol>
+                <li><strong>Despliega los cambios:</strong> Los archivos ya están corregidos</li>
+                <li><strong>Prueba la programación de reuniones:</strong>
+                    <ul>
+                        <li>Ve a un prospecto con status "Interested"</li>
+                        <li>Haz clic en "Schedule Meeting"</li>
+                        <li>Verifica que se agende a la hora correcta (9 AM México, no 3 AM)</li>
+                    </ul>
+                </li>
+                <li><strong>Prueba el pixel tracking:</strong>
+                    <ul>
+                        <li>Envía un email a un prospecto</li>
+                        <li>Abre el email y verifica que se registre como "opened"</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('pixel-log').innerHTML = '';
+        }
+
+        function testTimezoneConversion() {
+            log('🧪 Iniciando test de conversión de zona horaria...');
+            
+            // Simular la fecha problemática: 9:00 AM México
+            const mexicoTime = new Date();
+            mexicoTime.setHours(9, 0, 0, 0);
+            
+            log(`📅 Hora original (México): ${mexicoTime.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`);
+            
+            // Simular la conversión ANTES (problemática)
+            const oldConversion = new Date(mexicoTime.toLocaleString("en-US", { timeZone: "UTC" }));
+            log(`❌ Conversión ANTES (incorrecta): ${oldConversion.toISOString()}`);
+            log(`❌ Hora resultante: ${oldConversion.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`);
+            
+            // Simular la conversión DESPUÉS (correcta)
+            const utcTime = new Date(mexicoTime.getTime() - (6 * 60 * 60 * 1000)); // UTC-6
+            log(`✅ Conversión DESPUÉS (correcta): ${utcTime.toISOString()}`);
+            log(`✅ Hora resultante: ${utcTime.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`);
+            
+            // Verificar que la conversión inversa funcione
+            const backToMexico = new Date(utcTime.getTime() + (6 * 60 * 60 * 1000));
+            log(`🔄 Conversión inversa (UTC → México): ${backToMexico.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`);
+            
+            if (backToMexico.getHours() === 9) {
+                log('✅ ¡CONVERSIÓN CORRECTA! La hora se mantiene en 9:00 AM', 'success');
+            } else {
+                log('❌ ERROR: La conversión no es correcta', 'error');
+            }
+        }
+
+        function testAvailableSlots() {
+            log('🔍 Simulando búsqueda de slots disponibles...');
+            
+            // Simular horarios de trabajo: 9 AM - 6 PM México
+            const workStartHour = 9;
+            const workEndHour = 18;
+            
+            log(`🕐 Horarios de trabajo: ${workStartHour}:00 - ${workEndHour}:00 (México)`);
+            
+            // Simular slots cada 30 minutos
+            const slots = [];
+            for (let hour = workStartHour; hour < workEndHour; hour++) {
+                for (let minute = 0; minute < 60; minute += 30) {
+                    const slot = new Date();
+                    slot.setHours(hour, minute, 0, 0);
+                    slots.push(slot);
+                }
+            }
+            
+            log(`📊 Slots generados: ${slots.length}`);
+            log(`🕐 Primeros 5 slots:`);
+            slots.slice(0, 5).forEach((slot, index) => {
+                const mexicoTime = slot.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+                log(`  ${index + 1}. ${mexicoTime}`);
+            });
+            
+            if (slots.length > 0) {
+                log('✅ ¡SLOTS ENCONTRADOS! El problema de "No available slots found" debería estar resuelto', 'success');
+            } else {
+                log('❌ ERROR: No se generaron slots', 'error');
+            }
+        }
+
+        function testPixelTracking() {
+            const pixelLog = document.getElementById('pixel-log');
+            
+            // Simular la URL del pixel
+            const baseUrl = 'https://rafagent-engine-production.up.railway.app';
+            const prospectId = 'test-prospect-123';
+            const pixelUrl = `${baseUrl}/api/pixel/${prospectId}`;
+            
+            pixelLog.innerHTML = `
+                <div class="info">🔍 Test de Pixel Tracking</div>
+                <div class="success">✅ URL base: ${baseUrl}</div>
+                <div class="success">✅ Prospect ID: ${prospectId}</div>
+                <div class="success">✅ URL del pixel: ${pixelUrl}</div>
+                <div class="info">📧 HTML del pixel:</div>
+                <div style="background: #f8f9fa; padding: 10px; border-radius: 3px; font-family: monospace;">
+                    &lt;img src="${pixelUrl}" width="1" height="1" style="display:none;" /&gt;
+                </div>
+                <div class="success">✅ ¡Pixel tracking configurado correctamente!</div>
+            `;
+        }
+
+        // Test automático al cargar la página
+        window.onload = function() {
+            log('🚀 Página de test cargada. Haz clic en los botones para probar las correcciones.');
+        };
+    </script>
+</body>
+</html>

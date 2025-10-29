@@ -69,14 +69,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let isNewUser = false;
       
       if (!user) {
-        // Detect user's timezone automatically
-        const detectedTimezone = detectUserTimezone();
-        console.log(`🌍 Detected user timezone: ${detectedTimezone}`);
+        // Use default timezone for new users (they can change it in settings)
+        const defaultTimezone = 'America/Mexico_City';
+        console.log(`🌍 Using default timezone for new user: ${defaultTimezone}`);
         
         user = await storage.createUser({
           email: userInfo.email,
           name: userInfo.name || userInfo.email,
-          timezone: detectedTimezone
+          timezone: defaultTimezone
         });
         isNewUser = true;
       }
@@ -909,10 +909,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📅 Search period: ${searchStartDate.toISOString()} to ${searchEndDate.toISOString()}`);
       console.log(`📅 Search period (user timezone): ${searchStartDate.toLocaleString("en-US", { timeZone: user?.timezone || 'America/Mexico_City' })} to ${searchEndDate.toLocaleString("en-US", { timeZone: user?.timezone || 'America/Mexico_City' })}`);
 
-      // Use user's timezone from config (which should match user's timezone)
+      // Use user's configured timezone from config (user can change this in settings)
       const userTimezone = config.timezone || user?.timezone || 'America/Mexico_City';
-      console.log(`🌍 Using user timezone: ${userTimezone}`);
-      
+      console.log(`🌍 Using configured user timezone: ${userTimezone}`);
+      console.log(`⏰ Working hours: ${workStartHour}:00 - ${workEndHour}:00 (${userTimezone})`);
+
       const availableSlots = await getAvailableSlots(
         user?.googleAccessToken || '',
         searchStartDate,

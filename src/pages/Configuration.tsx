@@ -10,6 +10,7 @@ import { Loader2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiCall } from "@/lib/api";
+import TimezoneSelector from "@/components/TimezoneSelector";
 
 interface UserConfig {
   id: string;
@@ -48,6 +49,7 @@ export default function Configuration() {
     searchStartTime: '09:00',
     searchEndTime: '17:00',
     workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+    timezone: 'America/Mexico_City',
   });
 
   // Fetch user config
@@ -75,6 +77,7 @@ export default function Configuration() {
         searchStartTime: userConfig.searchStartTime || '09:00',
         searchEndTime: userConfig.searchEndTime || '17:00',
         workingDays: workingDaysArray,
+        timezone: userConfig.timezone || 'America/Mexico_City',
       });
     }
   }, [userConfig, user]); // Re-run when userConfig or user changes
@@ -111,6 +114,13 @@ export default function Configuration() {
       workingDays: checked 
         ? [...(prev.workingDays || []), day]
         : (prev.workingDays || []).filter(d => d !== day)
+    }));
+  };
+
+  const handleTimezoneChange = (timezone: string) => {
+    setConfig(prev => ({
+      ...prev,
+      timezone: timezone
     }));
   };
 
@@ -242,11 +252,10 @@ export default function Configuration() {
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="space-y-1">
-              <Label className="text-xs">Active Timezone</Label>
-              <div className="p-3 bg-muted rounded-md">
-                <p className="text-sm font-medium">{userConfig?.timezone || 'America/Mexico_City'}</p>
-                <p className="text-xs text-muted-foreground">Times below are set in this timezone</p>
-              </div>
+              <TimezoneSelector
+                currentTimezone={config.timezone || 'America/Mexico_City'}
+                onTimezoneChange={handleTimezoneChange}
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
