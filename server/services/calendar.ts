@@ -318,20 +318,16 @@ export async function getAvailableSlots(
       const month = currentDate.getMonth();
       const date = currentDate.getDate();
       
-      // ULTRA SIMPLIFIED APPROACH - Create dates directly in UTC with timezone offset
-      const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+      // APPS SCRIPT APPROACH - Create dates in user's timezone, let Google Calendar handle UTC conversion
+      const dayStartInUserTz = new Date(currentDate);
+      dayStartInUserTz.setHours(workStartHour, 0, 0, 0);
       
-      // Get timezone offset in hours (simplified)
-      const timezoneOffsetHours = getTimezoneOffsetHours(timezone);
+      const dayEndInUserTz = new Date(currentDate);
+      dayEndInUserTz.setHours(workEndHour, 0, 0, 0);
       
-      // Create UTC dates by subtracting the timezone offset
-      const dayStartUTC = new Date(`${dateString}T${String(workStartHour).padStart(2, '0')}:00:00.000Z`);
-      const dayEndUTC = new Date(`${dateString}T${String(workEndHour).padStart(2, '0')}:00:00.000Z`);
-      
-      // Apply timezone offset to convert from user timezone to UTC
-      // Mexico is UTC-6, so we ADD 6 hours to get UTC time
-      dayStartUTC.setHours(dayStartUTC.getHours() + timezoneOffsetHours);
-      dayEndUTC.setHours(dayEndUTC.getHours() + timezoneOffsetHours);
+      // Convert to UTC for Google Calendar API (but keep the local time values)
+      const dayStartUTC = new Date(dayStartInUserTz.toISOString());
+      const dayEndUTC = new Date(dayEndInUserTz.toISOString());
       
       console.log(`🕐 Working hours in user timezone: ${workStartHour}:00 - ${workEndHour}:00 (${timezone})`);
       console.log(`🕐 Working hours in UTC: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
@@ -430,22 +426,32 @@ export function findNextAvailableSlot(
   let filteredSlots = availableSlots.filter(slot => slot >= minTime);
   console.log(`📅 After 24h filter: ${filteredSlots.length} slots`);
 
-  // STEP 1: Convert all slots to user timezone and sort by date
+  // APPS SCRIPT APPROACH - Work directly with UTC slots, extract hour in user timezone
   const slotsInUserTz = filteredSlots.map(slot => {
-    // Convert UTC slot to user timezone properly
-    const slotInUserTz = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
+    // Get hour in user timezone using Intl.DateTimeFormat (more reliable)
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    const timeParts = formatter.formatToParts(slot);
+    const hour = parseInt(timeParts.find(p => p.type === 'hour')?.value || '0');
+    const minute = parseInt(timeParts.find(p => p.type === 'minute')?.value || '0');
+    
     return {
       utc: slot,
-      user: slotInUserTz,
-      dayOfWeek: slotInUserTz.getDay(),
-      hour: slotInUserTz.getHours(),
-      minute: slotInUserTz.getMinutes()
+      dayOfWeek: slot.getUTCDay(), // Use UTC day for consistency
+      hour: hour,
+      minute: minute
     };
   }).sort((a, b) => a.utc.getTime() - b.utc.getTime());
 
   console.log(`📅 First 5 slots in user timezone:`);
   slotsInUserTz.slice(0, 5).forEach((slot, index) => {
-    console.log(`  ${index + 1}. ${slot.user.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek}`);
+    const slotInUserTz = new Date(slot.utc.toLocaleString("en-US", { timeZone: timezone }));
+    console.log(`  ${index + 1}. ${slotInUserTz.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek} - hour ${slot.hour}:${slot.minute}`);
   });
 
   // STEP 2: Try to match preferred day(s) if specified
@@ -463,7 +469,8 @@ export function findNextAvailableSlot(
       dayFilteredSlots = slotsInUserTz.filter(slot => {
         const matches = preferredDayNumbers.includes(slot.dayOfWeek);
         if (matches) {
-          console.log(`✅ Day match: ${slot.user.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek}`);
+          const slotInUserTz = new Date(slot.utc.toLocaleString("en-US", { timeZone: timezone }));
+          console.log(`✅ Day match: ${slotInUserTz.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek}`);
         }
         return matches;
       });
