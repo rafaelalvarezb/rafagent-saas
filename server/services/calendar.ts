@@ -242,17 +242,13 @@ export async function getAvailableSlots(
       
       console.log(`🕐 Working hours in user timezone: ${dayStartInUserTz.toLocaleString()} to ${dayEndInUserTz.toLocaleString()} (${timezone})`);
       
-      // Convert to UTC for Google Calendar API
-      // For Mexico City (UTC-6), we need to add 6 hours to get UTC
-      const timezoneOffset = getTimezoneOffset(timezone, dayStartInUserTz);
-      const dayStartUTC = new Date(dayStartInUserTz.getTime() - (timezoneOffset * 60000));
-      const dayEndUTC = new Date(dayEndInUserTz.getTime() - (timezoneOffset * 60000));
+      // Convert to UTC for Google Calendar API using a simpler approach
+      // Create the date in the user's timezone, then convert to UTC
+      const dayStartUTC = new Date(dayStartInUserTz.toLocaleString("en-US", { timeZone: "UTC" }));
+      const dayEndUTC = new Date(dayEndInUserTz.toLocaleString("en-US", { timeZone: "UTC" }));
       
-      // Debug: Show the conversion
-      console.log(`🕐 Timezone offset: ${timezoneOffset} minutes`);
       console.log(`🕐 User time: ${dayStartInUserTz.toLocaleString()} -> UTC: ${dayStartUTC.toISOString()}`);
-      
-      console.log(`🕐 UTC times: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
+      console.log(`🕐 User time: ${dayEndInUserTz.toLocaleString()} -> UTC: ${dayEndUTC.toISOString()}`);
       
       let slotTime = new Date(dayStartUTC);
       let slotsAddedForThisDay = 0;
