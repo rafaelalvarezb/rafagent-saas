@@ -33,7 +33,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       websocket: "enabled"
     });
   });
-
+  
   // ===== AUTHENTICATION =====
   app.get("/api/auth/google", (req, res) => {
     const authUrl = getAuthUrl();

@@ -859,7 +859,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         availableSlots,
         preferredDays,
         prospect.suggestedTime || undefined,
-        prospect.suggestedWeek || undefined
+        prospect.suggestedWeek || undefined,
+        user?.timezone || 'America/Mexico_City'
       );
 
       if (!selectedSlot) {
@@ -1130,14 +1131,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/pixel/:prospectId", async (req, res) => {
     try {
       const { prospectId } = req.params;
+      console.log(`🔍 Pixel tracking hit for prospect: ${prospectId}`);
+      
       const prospect = await storage.getProspect(prospectId);
       
-      if (prospect && !prospect.emailOpened) {
-        await storage.updateProspect(prospectId, {
-          emailOpened: true,
-          emailOpenedAt: new Date()
-        });
-        console.log(`Email opened by prospect: ${prospect.contactEmail}`);
+      if (prospect) {
+        console.log(`📧 Found prospect: ${prospect.contactEmail}, emailOpened: ${prospect.emailOpened}`);
+        
+        if (!prospect.emailOpened) {
+          await storage.updateProspect(prospectId, {
+            emailOpened: true,
+            emailOpenedAt: new Date()
+          });
+          console.log(`✅ Email opened by prospect: ${prospect.contactEmail} at ${new Date().toISOString()}`);
+        } else {
+          console.log(`ℹ️ Email already marked as opened for: ${prospect.contactEmail}`);
+        }
+      } else {
+        console.log(`❌ Prospect not found: ${prospectId}`);
       }
       
       // Return 1x1 transparent pixel
@@ -1153,7 +1164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.end(pixel);
     } catch (error: any) {
-      console.error('Pixel tracking error:', error);
+      console.error('❌ Pixel tracking error:', error);
       // Still return pixel even on error
       const pixel = Buffer.from(
         'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',

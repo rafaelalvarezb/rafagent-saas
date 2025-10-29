@@ -106,7 +106,7 @@ export function useWebSocket() {
       queryClient.invalidateQueries({ queryKey: ['prospects'] });
       queryClient.refetchQueries({ queryKey: ['prospects'] });
     });
-
+      
     // Add a general event listener to catch all events
     socket.onAny((eventName, ...args) => {
       console.log('📡 WebSocket event received:', eventName, args);
