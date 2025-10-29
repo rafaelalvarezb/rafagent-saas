@@ -98,6 +98,16 @@ export async function scheduleMeeting(params: ScheduleMeetingParamsExtended & { 
     console.log(`🕐 Start time (${timezone}): ${startInUserTz.toLocaleString()}`);
     console.log(`🕐 End time (${timezone}): ${endInUserTz.toLocaleString()}`);
     
+    // Verify the times are in working hours
+    const startHour = startInUserTz.getHours();
+    const endHour = endInUserTz.getHours();
+    
+    console.log(`⏰ Meeting hours: ${startHour}:00 - ${endHour}:00 (${timezone})`);
+    
+    if (startHour < 9 || startHour > 22) {
+      console.warn(`⚠️ Warning: Meeting scheduled outside typical working hours (${startHour}:00)`);
+    }
+    
     const event = {
       summary: params.title,
       description: params.description,
@@ -121,6 +131,10 @@ export async function scheduleMeeting(params: ScheduleMeetingParamsExtended & { 
       sendUpdates: 'all' as const
     };
 
+    console.log(`📝 Creating event with timezone: ${timezone}`);
+    console.log(`📝 Event start: ${params.startTime.toISOString()}`);
+    console.log(`📝 Event end: ${params.endTime.toISOString()}`);
+
     const result = await calendar.events.insert({
       calendarId: 'primary',
       conferenceDataVersion: 1,
@@ -135,6 +149,7 @@ export async function scheduleMeeting(params: ScheduleMeetingParamsExtended & { 
 
     console.log(`✅ Meeting scheduled successfully: ${result.data.id}`);
     console.log(`🔗 Meet link: ${meetLink}`);
+    console.log(`📅 Final meeting time: ${startInUserTz.toLocaleString()} (${timezone})`);
 
     return {
       ...result.data,
@@ -185,8 +200,7 @@ export async function getAvailableSlots(
   console.log(`📊 Found ${busySlots.length} busy slots`);
 
   const availableSlots: Date[] = [];
-  const currentDate = new Date(startDate);
-
+  
   // Convert workingDays to day numbers (0 = Sunday, 1 = Monday, etc.)
   const dayMap: Record<string, number> = {
     'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3,
@@ -204,21 +218,30 @@ export async function getAvailableSlots(
   minTime.setHours(minTime.getHours() + 24);
   console.log(`⏰ Minimum time (24h from now): ${minTime.toISOString()}`);
 
+  // Create a date in the user's timezone for each day
+  const currentDate = new Date(startDate);
+  
   while (currentDate < endDate) {
     const dayOfWeek = currentDate.getDay();
     
     // Check if this day is a working day based on user's configuration
     if (workingDayNumbers.includes(dayOfWeek)) {
-      // Create day start and end times in the user's timezone
-      const dayStart = new Date(currentDate);
-      dayStart.setHours(workStartHour, 0, 0, 0);
+      // Create a date in the user's timezone for this day
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const date = currentDate.getDate();
       
-      const dayEnd = new Date(currentDate);
-      dayEnd.setHours(workEndHour, 0, 0, 0);
+      // Create start and end times in the user's timezone
+      const dayStartInUserTz = new Date(year, month, date, workStartHour, 0, 0, 0);
+      const dayEndInUserTz = new Date(year, month, date, workEndHour, 0, 0, 0);
       
-      // Convert to UTC for comparison with busy slots
-      const dayStartUTC = new Date(dayStart.getTime() - (dayStart.getTimezoneOffset() * 60000));
-      const dayEndUTC = new Date(dayEnd.getTime() - (dayEnd.getTimezoneOffset() * 60000));
+      console.log(`📅 Checking ${currentDate.toDateString()}: ${dayStartInUserTz.toLocaleString()} to ${dayEndInUserTz.toLocaleString()} (${timezone})`);
+      
+      // Convert to UTC for Google Calendar API
+      const dayStartUTC = new Date(dayStartInUserTz.toLocaleString("en-US", { timeZone: "UTC" }));
+      const dayEndUTC = new Date(dayEndInUserTz.toLocaleString("en-US", { timeZone: "UTC" }));
+      
+      console.log(`🕐 UTC times: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
       
       let slotTime = new Date(dayStartUTC);
       
@@ -232,6 +255,10 @@ export async function getAvailableSlots(
         // Only add slots that are at least 24 hours in the future
         if (!isConflict && slotTime > minTime) {
           availableSlots.push(new Date(slotTime));
+          
+          // Log the slot in user's timezone for debugging
+          const slotInUserTz = new Date(slotTime.toLocaleString("en-US", { timeZone: timezone }));
+          console.log(`✅ Available slot: ${slotInUserTz.toLocaleString()} (${timezone})`);
         }
         
         slotTime.setMinutes(slotTime.getMinutes() + 30);
@@ -329,21 +356,23 @@ export function findNextAvailableSlot(
     const [hours, minutes] = preferredTime.split(':').map(Number);
     console.log(`🕐 Looking for preferred time: ${hours}:${minutes} (${timezone})`);
     
-    // Convert preferred time to UTC for comparison
-    const preferredDate = new Date();
-    preferredDate.setHours(hours, minutes, 0, 0);
-    
     // First try exact match (within 30 minutes)
     let exactMatch = dayFilteredSlots.filter(slot => {
       const slotInUserTz = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
       const slotHours = slotInUserTz.getHours();
       const slotMinutes = slotInUserTz.getMinutes();
-      return slotHours === hours && Math.abs(slotMinutes - minutes) <= 30;
+      const isExactMatch = slotHours === hours && Math.abs(slotMinutes - minutes) <= 30;
+      
+      if (isExactMatch) {
+        console.log(`🎯 Found exact match: ${slotInUserTz.toLocaleString()} (${timezone})`);
+      }
+      
+      return isExactMatch;
     });
     
     console.log(`🎯 Exact time matches: ${exactMatch.length}`);
     if (exactMatch.length > 0) {
-      console.log(`✅ Found exact match: ${exactMatch[0].toISOString()}`);
+      console.log(`✅ Using exact match: ${exactMatch[0].toISOString()}`);
       if (usedFallbackForDay) {
         console.log(`⚠️ Note: Used fallback day (preferred day was not available)`);
       }
@@ -359,7 +388,14 @@ export function findNextAvailableSlot(
       const slotTimeInMinutes = slotHours * 60 + slotMinutes;
       const preferredTimeInMinutes = hours * 60 + minutes;
       const timeDiff = Math.abs(slotTimeInMinutes - preferredTimeInMinutes);
-      return timeDiff <= 120; // Within 2 hours
+      
+      const isWithinRange = timeDiff <= 120; // Within 2 hours
+      
+      if (isWithinRange) {
+        console.log(`🕐 Found close match: ${slotInUserTz.toLocaleString()} (${timezone}) - diff: ${timeDiff} minutes`);
+      }
+      
+      return isWithinRange;
     });
     
     console.log(`📅 After time filter (±2h): ${timeFilteredSlots.length} slots (was ${beforeTimeFilter})`);
