@@ -1151,10 +1151,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`📧 Found prospect: ${prospect.contactEmail}, emailOpened: ${prospect.emailOpened}`);
         
         if (!prospect.emailOpened) {
-          await storage.updateProspect(prospectId, {
-            emailOpened: true,
-            emailOpenedAt: new Date()
-          });
+        await storage.updateProspect(prospectId, {
+          emailOpened: true,
+          emailOpenedAt: new Date()
+        });
           console.log(`✅ Email opened by prospect: ${prospect.contactEmail} at ${new Date().toISOString()}`);
         } else {
           console.log(`ℹ️ Email already marked as opened for: ${prospect.contactEmail}`);

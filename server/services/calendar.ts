@@ -200,7 +200,7 @@ export async function getAvailableSlots(
   console.log(`📊 Found ${busySlots.length} busy slots`);
 
   const availableSlots: Date[] = [];
-  
+
   // Convert workingDays to day numbers (0 = Sunday, 1 = Monday, etc.)
   const dayMap: Record<string, number> = {
     'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3,
@@ -343,9 +343,20 @@ export function findNextAvailableSlot(
     
     if (preferredDayNumbers.length > 0) {
       const beforeFilter = filteredSlots.length;
-      dayFilteredSlots = filteredSlots.filter(slot => 
-        preferredDayNumbers.includes(slot.getDay())
-      );
+      
+      // Convert slots to user timezone before checking day of week
+      dayFilteredSlots = filteredSlots.filter(slot => {
+        const slotInUserTz = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
+        const dayOfWeek = slotInUserTz.getDay();
+        const matches = preferredDayNumbers.includes(dayOfWeek);
+        
+        if (matches) {
+          console.log(`✅ Day match: ${slotInUserTz.toLocaleString()} (${timezone}) - day ${dayOfWeek}`);
+        }
+        
+        return matches;
+      });
+      
       console.log(`📅 After day filter: ${dayFilteredSlots.length} slots (was ${beforeFilter})`);
       
       // FALLBACK: If no slots on preferred day, use any weekday (Mon-Fri)
@@ -354,7 +365,8 @@ export function findNextAvailableSlot(
         console.log(`🔄 FALLBACK: Looking for slots on any weekday (Mon-Fri)`);
         
         dayFilteredSlots = filteredSlots.filter(slot => {
-          const day = slot.getDay();
+          const slotInUserTz = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
+          const day = slotInUserTz.getDay();
           return day >= 1 && day <= 5; // Monday to Friday
         });
         
