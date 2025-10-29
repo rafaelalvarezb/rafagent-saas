@@ -2,6 +2,38 @@ import { google } from 'googleapis';
 import { getOAuth2Client } from '../auth';
 
 /**
+ * Convert a date to a specific timezone
+ */
+function convertToTimezone(date: Date, timezone: string): Date {
+  // Create a new date in the target timezone
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const targetTime = new Date(utc);
+  
+  // Get timezone offset for the target timezone
+  const targetOffset = getTimezoneOffset(timezone, targetTime);
+  const localOffset = date.getTimezoneOffset();
+  const diff = (localOffset - targetOffset) * 60000;
+  
+  return new Date(utc + diff);
+}
+
+/**
+ * Get timezone offset in minutes
+ */
+function getTimezoneOffset(timezone: string, date: Date): number {
+  // This is a simplified version - in production you'd want to use a proper timezone library
+  const timezoneOffsets: Record<string, number> = {
+    'America/Mexico_City': -360, // UTC-6
+    'America/New_York': -300,    // UTC-5
+    'America/Los_Angeles': -480, // UTC-8
+    'Europe/London': 0,          // UTC+0
+    'Europe/Paris': 60,          // UTC+1
+  };
+  
+  return timezoneOffsets[timezone] || -360; // Default to Mexico City
+}
+
+/**
  * Get Calendar client with user's OAuth credentials
  * @param accessToken - User's access token
  * @param refreshToken - User's refresh token (optional, for auto-refresh)
@@ -24,20 +56,23 @@ interface ScheduleMeetingParamsExtended extends ScheduleMeetingParams {
   refreshToken?: string;
 }
 
-export async function scheduleMeeting(params: ScheduleMeetingParamsExtended): Promise<any> {
+export async function scheduleMeeting(params: ScheduleMeetingParamsExtended & { userTimezone?: string }): Promise<any> {
   try {
     const calendar = getCalendarClient(params.accessToken, params.refreshToken);
+    
+    // Use user's timezone or default to Mexico City
+    const timezone = params.userTimezone || 'America/Mexico_City';
     
     const event = {
       summary: params.title,
       description: params.description,
       start: {
         dateTime: params.startTime.toISOString(),
-        timeZone: 'America/Mexico_City',
+        timeZone: timezone,
       },
       end: {
         dateTime: params.endTime.toISOString(),
-        timeZone: 'America/Mexico_City',
+        timeZone: timezone,
       },
       attendees: [
         { email: params.attendeeEmail }
@@ -90,10 +125,14 @@ export async function getAvailableSlots(
 ): Promise<Date[]> {
   const calendar = getCalendarClient(accessToken, refreshToken);
   
+  // Convert dates to user's timezone for proper comparison
+  const userStartDate = convertToTimezone(startDate, timezone);
+  const userEndDate = convertToTimezone(endDate, timezone);
+  
   const events = await calendar.events.list({
     calendarId: 'primary',
-    timeMin: startDate.toISOString(),
-    timeMax: endDate.toISOString(),
+    timeMin: userStartDate.toISOString(),
+    timeMax: userEndDate.toISOString(),
     singleEvents: true,
     orderBy: 'startTime',
   });
@@ -104,7 +143,7 @@ export async function getAvailableSlots(
   }));
 
   const availableSlots: Date[] = [];
-  const currentDate = new Date(startDate);
+  const currentDate = new Date(userStartDate);
 
   // Convert workingDays to day numbers (0 = Sunday, 1 = Monday, etc.)
   const dayMap: Record<string, number> = {
@@ -116,11 +155,15 @@ export async function getAvailableSlots(
     ? workingDays.map(day => dayMap[day.toLowerCase()]).filter(n => n !== undefined)
     : [1, 2, 3, 4, 5]; // Default: Monday-Friday
 
-  while (currentDate < endDate) {
+  console.log(`🕐 Working hours: ${workStartHour}:00 - ${workEndHour}:00 in ${timezone}`);
+  console.log(`📅 Working days: ${workingDayNumbers.join(', ')}`);
+
+  while (currentDate < userEndDate) {
     const dayOfWeek = currentDate.getDay();
     
     // Check if this day is a working day based on user's configuration
     if (workingDayNumbers.includes(dayOfWeek)) {
+      // Create day start and end times in user's timezone
       const dayStart = new Date(currentDate);
       dayStart.setHours(workStartHour, 0, 0, 0);
       
@@ -141,7 +184,9 @@ export async function getAvailableSlots(
         minTime.setHours(minTime.getHours() + 24);
         
         if (!isConflict && slotTime > minTime) {
-          availableSlots.push(new Date(slotTime));
+          // Convert back to UTC for storage
+          const utcSlot = new Date(slotTime.getTime() - (slotTime.getTimezoneOffset() * 60000));
+          availableSlots.push(utcSlot);
         }
         
         slotTime.setMinutes(slotTime.getMinutes() + 30);
@@ -151,6 +196,7 @@ export async function getAvailableSlots(
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
+  console.log(`📅 Found ${availableSlots.length} available slots`);
   return availableSlots;
 }
 

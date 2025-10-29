@@ -902,7 +902,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startTime: selectedSlot,
         endTime: endTime,
         accessToken: user?.googleAccessToken || '',
-        refreshToken: user?.googleRefreshToken
+        refreshToken: user?.googleRefreshToken,
+        userTimezone: user?.timezone || 'America/Mexico_City'
       });
 
       await storage.updateProspect(prospect.id, {
