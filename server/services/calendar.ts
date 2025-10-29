@@ -329,8 +329,9 @@ export async function getAvailableSlots(
       const dayEndUTC = new Date(`${dateString}T${String(workEndHour).padStart(2, '0')}:00:00.000Z`);
       
       // Apply timezone offset to convert from user timezone to UTC
-      dayStartUTC.setHours(dayStartUTC.getHours() - timezoneOffsetHours);
-      dayEndUTC.setHours(dayEndUTC.getHours() - timezoneOffsetHours);
+      // Mexico is UTC-6, so we ADD 6 hours to get UTC time
+      dayStartUTC.setHours(dayStartUTC.getHours() + timezoneOffsetHours);
+      dayEndUTC.setHours(dayEndUTC.getHours() + timezoneOffsetHours);
       
       console.log(`🕐 Working hours in user timezone: ${workStartHour}:00 - ${workEndHour}:00 (${timezone})`);
       console.log(`🕐 Working hours in UTC: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
