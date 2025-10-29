@@ -226,14 +226,14 @@ export async function getAvailableSlots(
     
     // Check if this day is a working day based on user's configuration
     if (workingDayNumbers.includes(dayOfWeek)) {
-      // Create a date in the user's timezone for this day
+      console.log(`📅 Checking ${currentDate.toDateString()} (day ${dayOfWeek})`);
+      
+      // Create start and end times in the user's timezone
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
       const date = currentDate.getDate();
       
-      console.log(`📅 Checking ${currentDate.toDateString()} (day ${dayOfWeek})`);
-      
-      // Create start and end times in the user's timezone
+      // Create dates in user's timezone
       const dayStartInUserTz = new Date(year, month, date, workStartHour, 0, 0, 0);
       const dayEndInUserTz = new Date(year, month, date, workEndHour, 0, 0, 0);
       
@@ -244,6 +244,10 @@ export async function getAvailableSlots(
       const timezoneOffset = getTimezoneOffset(timezone, dayStartInUserTz);
       const dayStartUTC = new Date(dayStartInUserTz.getTime() - (timezoneOffset * 60000));
       const dayEndUTC = new Date(dayEndInUserTz.getTime() - (timezoneOffset * 60000));
+      
+      // Debug: Show the conversion
+      console.log(`🕐 Timezone offset: ${timezoneOffset} minutes`);
+      console.log(`🕐 User time: ${dayStartInUserTz.toLocaleString()} -> UTC: ${dayStartUTC.toISOString()}`);
       
       console.log(`🕐 UTC times: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
       
