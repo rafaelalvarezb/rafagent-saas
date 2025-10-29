@@ -13,6 +13,7 @@ import { isWithinWorkingHours, getWorkingHoursFromConfig, debugWorkingHours } fr
 import { SERVER_CONFIG } from "./config";
 import { redirectToEngine } from "./utils/engineRedirect";
 import { ensureCurrentUserDefaults } from "./utils/ensureDefaults";
+import { detectUserTimezone } from "./utils/timezoneDetection";
 
 /**
  * Get template name for touchpoint number
@@ -68,10 +69,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let isNewUser = false;
       
       if (!user) {
+        // Detect user's timezone automatically
+        const detectedTimezone = detectUserTimezone();
+        console.log(`🌍 Detected user timezone: ${detectedTimezone}`);
+        
         user = await storage.createUser({
           email: userInfo.email,
           name: userInfo.name || userInfo.email,
-          timezone: 'America/Mexico_City'
+          timezone: detectedTimezone
         });
         isNewUser = true;
       }
@@ -495,6 +500,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== TIMEZONE MANAGEMENT =====
+  app.get("/api/timezones", async (req, res) => {
+    try {
+      const { getTimezonesByRegion, detectUserTimezone } = await import("./utils/timezoneDetection");
+      const regions = getTimezonesByRegion();
+      const detected = detectUserTimezone();
+      
+      res.json({
+        regions,
+        detected,
+        current: req.query.current as string || detected
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/timezones/detect", async (req, res) => {
+    try {
+      const { detectUserTimezone } = await import("./utils/timezoneDetection");
+      const detected = detectUserTimezone();
+      
+      res.json({ timezone: detected });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/user/timezone", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req)!;
+      const { timezone } = req.body;
+      
+      if (!timezone) {
+        return res.status(400).json({ error: "Timezone is required" });
+      }
+      
+      // Validate timezone
+      const { isValidTimezone } = await import("./utils/timezoneDetection");
+      if (!isValidTimezone(timezone)) {
+        return res.status(400).json({ error: "Invalid timezone" });
+      }
+      
+      // Update user timezone
+      await storage.updateUser(userId, { timezone });
+      
+      // Also update user config timezone
+      await storage.updateUserConfig(userId, { timezone });
+      
+      res.json({ success: true, timezone });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== ACTIVITY LOGS =====
   app.get("/api/activities", requireAuth, async (req, res) => {
     try {
@@ -849,13 +909,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📅 Search period: ${searchStartDate.toISOString()} to ${searchEndDate.toISOString()}`);
       console.log(`📅 Search period (user timezone): ${searchStartDate.toLocaleString("en-US", { timeZone: user?.timezone || 'America/Mexico_City' })} to ${searchEndDate.toLocaleString("en-US", { timeZone: user?.timezone || 'America/Mexico_City' })}`);
 
+      // Use user's timezone from config (which should match user's timezone)
+      const userTimezone = config.timezone || user?.timezone || 'America/Mexico_City';
+      console.log(`🌍 Using user timezone: ${userTimezone}`);
+      
       const availableSlots = await getAvailableSlots(
         user?.googleAccessToken || '',
         searchStartDate,
         searchEndDate,
         workStartHour,
         workEndHour,
-        user?.timezone || 'America/Mexico_City',
+        userTimezone,
         user?.googleRefreshToken,
         config.workingDays?.split(',')
       );
@@ -869,7 +933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredDays,
         prospect.suggestedTime || undefined,
         prospect.suggestedWeek || undefined,
-        user?.timezone || 'America/Mexico_City'
+        userTimezone
       );
 
       if (!selectedSlot) {
@@ -916,7 +980,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endTime: endTime,
         accessToken: user?.googleAccessToken || '',
         refreshToken: user?.googleRefreshToken,
-        userTimezone: user?.timezone || 'America/Mexico_City'
+        userTimezone: userTimezone
       });
 
       await storage.updateProspect(prospect.id, {

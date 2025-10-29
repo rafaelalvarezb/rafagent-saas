@@ -17,6 +17,48 @@ function convertToTimezone(date: Date, timezone: string): Date {
 }
 
 /**
+ * Convert a date from one timezone to another using proper timezone conversion
+ * @param date - The date to convert
+ * @param fromTimezone - Source timezone (e.g., 'America/Mexico_City')
+ * @param toTimezone - Target timezone (e.g., 'UTC')
+ */
+function convertToUserTimezone(date: Date, fromTimezone: string, toTimezone: string): Date {
+  // Create a date in the source timezone
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const seconds = date.getSeconds();
+  
+  // Create a date string in ISO format for the source timezone
+  const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  
+  // Use Intl.DateTimeFormat to convert between timezones
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: toTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  
+  // Create a temporary date in the source timezone
+  const tempDate = new Date(dateString + 'Z'); // Treat as UTC first
+  
+  // Get the offset difference between source and target timezones
+  const sourceOffset = getTimezoneOffset(fromTimezone, tempDate);
+  const targetOffset = getTimezoneOffset(toTimezone, tempDate);
+  const offsetDiff = (sourceOffset - targetOffset) * 60000;
+  
+  // Apply the offset difference
+  return new Date(tempDate.getTime() + offsetDiff);
+}
+
+/**
  * Get timezone offset in minutes using proper timezone detection
  */
 function getTimezoneOffset(timezone: string, date: Date): number {
@@ -245,16 +287,16 @@ export async function getAvailableSlots(
       
       console.log(`🕐 Working hours in user timezone: ${dayStartInUserTz.toLocaleString()} to ${dayEndInUserTz.toLocaleString()} (${timezone})`);
       
-      // Convert to UTC for Google Calendar API using a more reliable method
-      // Create a date in the user's timezone, then convert to UTC
-      const dayStartUTC = new Date(dayStartInUserTz.toLocaleString("en-US", { timeZone: "UTC" }));
-      const dayEndUTC = new Date(dayEndInUserTz.toLocaleString("en-US", { timeZone: "UTC" }));
+      // Convert to UTC for Google Calendar API using proper timezone conversion
+      // Create dates in the user's timezone and convert them properly to UTC
+      const dayStartUTC = convertToUserTimezone(dayStartInUserTz, timezone, 'UTC');
+      const dayEndUTC = convertToUserTimezone(dayEndInUserTz, timezone, 'UTC');
       
       console.log(`🕐 User time: ${dayStartInUserTz.toLocaleString()} -> UTC: ${dayStartUTC.toISOString()}`);
       console.log(`🕐 User time: ${dayEndInUserTz.toLocaleString()} -> UTC: ${dayEndUTC.toISOString()}`);
       
       // Verify the conversion is correct
-      const testConversion = new Date(dayStartUTC.toLocaleString("en-US", { timeZone: timezone }));
+      const testConversion = convertToUserTimezone(dayStartUTC, 'UTC', timezone);
       console.log(`🕐 Verification: UTC ${dayStartUTC.toISOString()} -> User: ${testConversion.toLocaleString()} (${timezone})`);
       
       // Additional verification: check if the conversion makes sense
@@ -282,7 +324,7 @@ export async function getAvailableSlots(
           slotsAddedForThisDay++;
           
           // Log the slot in user's timezone for debugging
-          const slotInUserTz = new Date(slotTime.toLocaleString("en-US", { timeZone: timezone }));
+          const slotInUserTz = convertToUserTimezone(slotTime, 'UTC', timezone);
           console.log(`✅ Available slot: ${slotInUserTz.toLocaleString()} (${timezone})`);
         }
         
@@ -303,7 +345,7 @@ export async function getAvailableSlots(
   if (availableSlots.length > 0) {
     console.log(`🕐 First 5 available slots:`);
     availableSlots.slice(0, 5).forEach((slot, index) => {
-      const localTime = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
+      const localTime = convertToUserTimezone(slot, 'UTC', timezone);
       console.log(`  ${index + 1}. UTC: ${slot.toISOString()} -> User: ${localTime.toLocaleString()} (${timezone})`);
     });
   } else {
@@ -349,7 +391,8 @@ export function findNextAvailableSlot(
 
   // STEP 1: Convert all slots to user timezone and sort by date
   const slotsInUserTz = filteredSlots.map(slot => {
-    const slotInUserTz = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
+    // Convert UTC slot to user timezone properly
+    const slotInUserTz = convertToUserTimezone(slot, 'UTC', timezone);
     return {
       utc: slot,
       user: slotInUserTz,
@@ -457,7 +500,7 @@ export function findNextAvailableSlot(
   console.log(`🎯 Final selected slot: ${result ? result.toISOString() : 'NONE'}`);
   
   if (result) {
-    const resultInUserTz = new Date(result.toLocaleString("en-US", { timeZone: timezone }));
+    const resultInUserTz = convertToUserTimezone(result, 'UTC', timezone);
     console.log(`🕐 Selected slot in user timezone: ${resultInUserTz.toLocaleString()} (${timezone})`);
   }
   
