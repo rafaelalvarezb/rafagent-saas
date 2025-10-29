@@ -221,6 +221,9 @@ export async function getAvailableSlots(
   // Create a date in the user's timezone for each day
   const currentDate = new Date(startDate);
   
+  console.log(`📅 Starting date iteration from: ${currentDate.toISOString()}`);
+  console.log(`📅 End date: ${endDate.toISOString()}`);
+  
   while (currentDate < endDate) {
     const dayOfWeek = currentDate.getDay();
     
@@ -252,6 +255,7 @@ export async function getAvailableSlots(
       console.log(`🕐 UTC times: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
       
       let slotTime = new Date(dayStartUTC);
+      let slotsAddedForThisDay = 0;
       
       while (slotTime < dayEndUTC) {
         const slotEnd = new Date(slotTime.getTime() + 30 * 60000);
@@ -263,6 +267,7 @@ export async function getAvailableSlots(
         // Only add slots that are at least 24 hours in the future
         if (!isConflict && slotTime > minTime) {
           availableSlots.push(new Date(slotTime));
+          slotsAddedForThisDay++;
           
           // Log the slot in user's timezone for debugging
           const slotInUserTz = new Date(slotTime.toLocaleString("en-US", { timeZone: timezone }));
@@ -271,6 +276,8 @@ export async function getAvailableSlots(
         
         slotTime.setMinutes(slotTime.getMinutes() + 30);
       }
+      
+      console.log(`📊 Added ${slotsAddedForThisDay} slots for ${currentDate.toDateString()}`);
     } else {
       console.log(`⏭️ Skipping ${currentDate.toDateString()} (day ${dayOfWeek}) - not a working day`);
     }
