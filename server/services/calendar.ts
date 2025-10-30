@@ -2,129 +2,21 @@ import { google } from 'googleapis';
 import { getOAuth2Client } from '../auth';
 
 /**
- * Convert a date to a specific timezone using proper timezone handling
+ * ✨ CALENDAR SERVICE - VERSIÓN DEFINITIVA ✨
+ * 
+ * SOLUCIÓN AL PROBLEMA DE TIMEZONE:
+ * 
+ * Google Calendar API espera:
+ * - dateTime: Fecha/hora LOCAL (sin Z, sin offset)
+ * - timeZone: El timezone como string separado
+ * 
+ * INCORRECTO ❌:
+ * { dateTime: "2025-10-30T09:00:00Z", timeZone: "America/Mexico_City" }
+ * 
+ * CORRECTO ✅:
+ * { dateTime: "2025-10-30T09:00:00", timeZone: "America/Mexico_City" }
  */
-function convertToTimezone(date: Date, timezone: string): Date {
-  // Use Intl.DateTimeFormat to get proper timezone offset
-  const utcDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
-  
-  // Get the timezone offset for the target timezone
-  const targetOffset = getTimezoneOffset(timezone, utcDate);
-  const localOffset = date.getTimezoneOffset();
-  const diff = (localOffset - targetOffset) * 60000;
-  
-  return new Date(utcDate.getTime() + diff);
-}
 
-/**
- * Create a date in a specific timezone
- * @param year - Year
- * @param month - Month (0-11)
- * @param date - Day of month
- * @param hours - Hours
- * @param minutes - Minutes
- * @param seconds - Seconds
- * @param timezone - Target timezone
- * @returns Date object in the specified timezone
- */
-function createDateInTimezone(year: number, month: number, date: number, hours: number, minutes: number, seconds: number, timezone: string): Date {
-  try {
-    // Create date string in ISO format
-    const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    
-    // Use Intl.DateTimeFormat to create date in specific timezone
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    
-    // Create a temporary date and format it in the target timezone
-    const tempDate = new Date(dateString + 'Z'); // Treat as UTC first
-    const parts = formatter.formatToParts(tempDate);
-    
-    const targetYear = parseInt(parts.find(p => p.type === 'year')?.value || '0');
-    const targetMonth = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
-    const targetDay = parseInt(parts.find(p => p.type === 'day')?.value || '0');
-    const targetHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
-    const targetMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
-    const targetSecond = parseInt(parts.find(p => p.type === 'second')?.value || '0');
-    
-    // Create the final date
-    return new Date(targetYear, targetMonth, targetDay, targetHour, targetMinute, targetSecond);
-  } catch (error) {
-    console.error('Error creating date in timezone:', error);
-    // Fallback: create date normally
-    return new Date(year, month, date, hours, minutes, seconds);
-  }
-}
-
-/**
- * Convert a date from one timezone to another using proper timezone conversion
- * @param date - The date to convert
- * @param fromTimezone - Source timezone (e.g., 'America/Mexico_City')
- * @param toTimezone - Target timezone (e.g., 'UTC')
- */
-function convertToUserTimezone(date: Date, fromTimezone: string, toTimezone: string): Date {
-  try {
-    // Method 1: Use Intl.DateTimeFormat for accurate timezone conversion
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: toTimezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    
-    // Format the date in the target timezone
-    const parts = formatter.formatToParts(date);
-    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
-    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
-    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
-    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
-    const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
-    const second = parseInt(parts.find(p => p.type === 'second')?.value || '0');
-    
-    // Create new date in target timezone
-    return new Date(year, month, day, hour, minute, second);
-  } catch (error) {
-    console.error('Error in convertToUserTimezone:', error);
-    // Fallback: return original date
-    return date;
-  }
-}
-
-/**
- * Get timezone offset in minutes using proper timezone detection
- */
-function getTimezoneOffset(timezone: string): number {
-  // Get the timezone offset in minutes for a specific timezone
-  const now = new Date();
-  const utc = new Date(now.getTime() + (now.getTimezoneOffset() * 60000));
-  const targetTime = new Date(utc.toLocaleString("en-US", { timeZone: timezone }));
-  return utc.getTime() - targetTime.getTime();
-}
-
-/**
- * Get timezone offset in hours using proper timezone detection
- */
-function getTimezoneOffsetHours(timezone: string): number {
-  return getTimezoneOffset(timezone) / (1000 * 60 * 60);
-}
-
-/**
- * Get Calendar client with user's OAuth credentials
- * @param accessToken - User's access token
- * @param refreshToken - User's refresh token (optional, for auto-refresh)
- */
 export function getCalendarClient(accessToken: string, refreshToken?: string) {
   const auth = getOAuth2Client(accessToken, refreshToken);
   return google.calendar({ version: 'v3', auth });
@@ -136,70 +28,61 @@ interface ScheduleMeetingParams {
   description: string;
   startTime: Date;
   endTime: Date;
-}
-
-interface ScheduleMeetingParamsExtended extends ScheduleMeetingParams {
   accessToken: string;
   refreshToken?: string;
+  userTimezone?: string;
 }
 
-export async function scheduleMeeting(params: ScheduleMeetingParamsExtended & { userTimezone?: string }): Promise<any> {
+/**
+ * Convierte un Date object a formato local para Google Calendar
+ * Ejemplo: "2025-10-30T09:00:00" (sin Z, sin offset)
+ */
+function formatDateForGoogleCalendar(date: Date, timezone: string): string {
+  // Obtener los componentes de la fecha en el timezone específico
+  const year = date.toLocaleString('en-US', { timeZone: timezone, year: 'numeric' });
+  const month = date.toLocaleString('en-US', { timeZone: timezone, month: '2-digit' });
+  const day = date.toLocaleString('en-US', { timeZone: timezone, day: '2-digit' });
+  const hour = date.toLocaleString('en-US', { timeZone: timezone, hour: '2-digit', hour12: false });
+  const minute = date.toLocaleString('en-US', { timeZone: timezone, minute: '2-digit' });
+  const second = date.toLocaleString('en-US', { timeZone: timezone, second: '2-digit' });
+  
+  // Formato: YYYY-MM-DDTHH:MM:SS (sin Z ni offset)
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+}
+
+/**
+ * Programa una reunión en Google Calendar
+ */
+export async function scheduleMeeting(params: ScheduleMeetingParams): Promise<any> {
   try {
     const calendar = getCalendarClient(params.accessToken, params.refreshToken);
-    
-    // Use user's timezone or default to Mexico City
     const timezone = params.userTimezone || 'America/Mexico_City';
     
-    console.log(`🗓️ SIMPLE APPROACH - Scheduling meeting in timezone: ${timezone}`);
-    console.log(`📅 Start time (local): ${params.startTime.toLocaleString()}`);
-    console.log(`📅 End time (local): ${params.endTime.toLocaleString()}`);
+    console.log(`\n🗓️ === SCHEDULING MEETING ===`);
+    console.log(`📧 Attendee: ${params.attendeeEmail}`);
+    console.log(`🌍 Timezone: ${timezone}`);
+    console.log(`📅 Start (UTC): ${params.startTime.toISOString()}`);
+    console.log(`📅 End (UTC): ${params.endTime.toISOString()}`);
     
-    // Verify the times are in working hours
-    const startHour = params.startTime.getHours();
-    const endHour = params.endTime.getHours();
+    // Convertir a formato local
+    const startLocal = formatDateForGoogleCalendar(params.startTime, timezone);
+    const endLocal = formatDateForGoogleCalendar(params.endTime, timezone);
     
-    console.log(`⏰ Meeting hours: ${startHour}:00 - ${endHour}:00 (${timezone})`);
+    console.log(`📅 Start (Local): ${startLocal}`);
+    console.log(`📅 End (Local): ${endLocal}`);
     
-    if (startHour < 9 || startHour > 22) {
-      console.warn(`⚠️ Warning: Meeting scheduled outside typical working hours (${startHour}:00)`);
-    }
-    
-    // GOOGLE CALENDAR API CORRECT FORMAT: Local datetime with timezone
-    const formatDateTimeForGoogleCalendar = (date: Date, timezone: string): string => {
-      // Create a date in the user's timezone
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      
-      // Get timezone offset for the specific timezone
-      const tempDate = new Date();
-      const utcTime = tempDate.getTime() + (tempDate.getTimezoneOffset() * 60000);
-      const targetTime = new Date(utcTime + (getTimezoneOffset(timezone) * 60000));
-      const offset = targetTime.getTimezoneOffset();
-      const offsetHours = Math.floor(Math.abs(offset) / 60);
-      const offsetMinutes = Math.abs(offset) % 60;
-      const offsetSign = offset <= 0 ? '+' : '-';
-      
-      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
-    };
-
     const event = {
       summary: params.title,
       description: params.description,
       start: {
-        dateTime: formatDateTimeForGoogleCalendar(params.startTime, timezone),
+        dateTime: startLocal,
         timeZone: timezone,
       },
       end: {
-        dateTime: formatDateTimeForGoogleCalendar(params.endTime, timezone),
+        dateTime: endLocal,
         timeZone: timezone,
       },
-      attendees: [
-        { email: params.attendeeEmail }
-      ],
+      attendees: [{ email: params.attendeeEmail }],
       conferenceData: {
         createRequest: {
           requestId: `meet-${Date.now()}`,
@@ -209,42 +92,65 @@ export async function scheduleMeeting(params: ScheduleMeetingParamsExtended & { 
       sendUpdates: 'all' as const
     };
 
-    console.log(`📝 Creating event with timezone: ${timezone}`);
-    console.log(`📝 Event start: ${params.startTime.toISOString()}`);
-    console.log(`📝 Event end: ${params.endTime.toISOString()}`);
+    console.log(`📤 Sending to Google Calendar:`, JSON.stringify(event, null, 2));
 
     const result = await calendar.events.insert({
       calendarId: 'primary',
       conferenceDataVersion: 1,
-      sendUpdates: 'all', // CRITICAL: Send email invitations to attendees
+      sendUpdates: 'all',
       requestBody: event,
     });
 
-    // Extract Google Meet link
     const meetLink = result.data.conferenceData?.entryPoints?.[0]?.uri || 
                      result.data.hangoutLink || 
                      null;
 
-    console.log(`✅ Meeting scheduled successfully: ${result.data.id}`);
+    console.log(`✅ Meeting created successfully!`);
+    console.log(`🔗 Calendar link: ${result.data.htmlLink}`);
     console.log(`🔗 Meet link: ${meetLink}`);
-    console.log(`📅 Final meeting time: ${params.startTime.toLocaleString()} (${timezone})`);
 
-    return {
-      ...result.data,
-      meetLink
-    };
+    return { ...result.data, meetLink };
   } catch (error: any) {
-    console.error('❌ Error scheduling meeting:', {
-      attendee: params.attendeeEmail,
-      startTime: params.startTime,
-      timezone: params.userTimezone,
-      message: error.message,
-      code: error.code
-    });
-    throw new Error(`Failed to schedule meeting: ${error.message}`);
+    console.error('❌ Error scheduling meeting:', error.message);
+    if (error.response?.data) {
+      console.error('📄 API Error details:', JSON.stringify(error.response.data, null, 2));
+    }
+    throw error;
   }
 }
 
+/**
+ * Crea un Date object para un día/hora específico en un timezone
+ * Retorna el Date en UTC pero representando la hora local correcta
+ */
+function createDateInTimezone(
+  year: number,
+  month: number, // 1-12
+  day: number,
+  hour: number,
+  minute: number,
+  timezone: string
+): Date {
+  // Crear string de fecha local
+  const monthStr = String(month).padStart(2, '0');
+  const dayStr = String(day).padStart(2, '0');
+  const hourStr = String(hour).padStart(2, '0');
+  const minuteStr = String(minute).padStart(2, '0');
+  
+  const dateStr = `${year}-${monthStr}-${dayStr}T${hourStr}:${minuteStr}:00`;
+  
+  // Convertir a Date usando el timezone
+  const localDate = new Date(dateStr);
+  const utcDate = new Date(localDate.toLocaleString('en-US', { timeZone: 'UTC' }));
+  const tzDate = new Date(localDate.toLocaleString('en-US', { timeZone: timezone }));
+  const offset = utcDate.getTime() - tzDate.getTime();
+  
+  return new Date(localDate.getTime() + offset);
+}
+
+/**
+ * Obtiene slots disponibles en el calendario
+ */
 export async function getAvailableSlots(
   accessToken: string,
   startDate: Date,
@@ -257,11 +163,12 @@ export async function getAvailableSlots(
 ): Promise<Date[]> {
   const calendar = getCalendarClient(accessToken, refreshToken);
   
-  console.log(`🔍 SIMPLE APPROACH - Getting available slots for timezone: ${timezone}`);
-  console.log(`📅 Search period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
-  console.log(`🕐 Working hours: ${workStartHour}:00 - ${workEndHour}:00`);
+  console.log(`\n🔍 === GETTING AVAILABLE SLOTS ===`);
+  console.log(`📅 Period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+  console.log(`🕐 Hours: ${workStartHour}:00 - ${workEndHour}:00`);
+  console.log(`🌍 Timezone: ${timezone}`);
   
-  // Get busy events from Google Calendar
+  // Obtener eventos ocupados
   const events = await calendar.events.list({
     calendarId: 'primary',
     timeMin: startDate.toISOString(),
@@ -275,105 +182,93 @@ export async function getAvailableSlots(
     end: new Date(event.end?.dateTime || event.end?.date || ''),
   }));
 
-  console.log(`📊 Found ${busySlots.length} busy slots`);
+  console.log(`📊 Found ${busySlots.length} busy events`);
 
   const availableSlots: Date[] = [];
-
-  // Convert workingDays to day numbers (0 = Sunday, 1 = Monday, etc.)
-  const dayMap: Record<string, number> = {
-    'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3,
-    'thursday': 4, 'friday': 5, 'saturday': 6
-  };
+  const workingDayNumbers = [1, 2, 3, 4, 5]; // Lunes-Viernes
   
-  const workingDayNumbers = workingDays 
-    ? workingDays.map(day => dayMap[day.toLowerCase()]).filter(n => n !== undefined)
-    : [1, 2, 3, 4, 5]; // Default: Monday-Friday
-
-  console.log(`📅 Working days: ${workingDayNumbers.join(', ')}`);
-
-  // Ensure minimum 24-hour gap from now
+  // Mínimo 24 horas desde ahora
   const minTime = new Date();
   minTime.setHours(minTime.getHours() + 24);
+  
   console.log(`⏰ Minimum time (24h from now): ${minTime.toISOString()}`);
+  console.log(`⏰ In ${timezone}: ${minTime.toLocaleString('es-MX', { timeZone: timezone })}`);
 
-  // CORRECTED APPROACH: Create dates in user's timezone, then convert to UTC for Google Calendar
-  const currentDate = new Date(startDate);
+  // Iterar cada día en el rango
+  let currentDate = new Date(startDate);
   
   while (currentDate < endDate) {
     const dayOfWeek = currentDate.getDay();
     
-    // Check if this day is a working day
+    // Solo días laborables
     if (workingDayNumbers.includes(dayOfWeek)) {
-      console.log(`📅 Checking ${currentDate.toDateString()} (day ${dayOfWeek})`);
+      // Obtener año/mes/día en el timezone del usuario
+      const year = parseInt(currentDate.toLocaleString('en-US', { timeZone: timezone, year: 'numeric' }));
+      const month = parseInt(currentDate.toLocaleString('en-US', { timeZone: timezone, month: 'numeric' }));
+      const day = parseInt(currentDate.toLocaleString('en-US', { timeZone: timezone, day: 'numeric' }));
       
-      // Create dates in user's timezone
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
-      const day = currentDate.getDate();
+      console.log(`\n📅 Checking ${currentDate.toLocaleDateString('es-MX', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        timeZone: timezone 
+      })}`);
       
-      // Create start and end times in user's timezone
-      const dayStart = new Date(year, month, day, workStartHour, 0, 0, 0);
-      const dayEnd = new Date(year, month, day, workEndHour, 0, 0, 0);
-      
-      console.log(`🕐 Local creation: ${dayStart.toLocaleString()} to ${dayEnd.toLocaleString()} (${timezone})`);
-      
-      // Convert to UTC for Google Calendar API
-      const dayStartUTC = new Date(dayStart.getTime() - (dayStart.getTimezoneOffset() * 60000));
-      const dayEndUTC = new Date(dayEnd.getTime() - (dayEnd.getTimezoneOffset() * 60000));
-      
-      console.log(`🕐 UTC conversion: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
-      
-      // Verify the conversion
-      const verifyStart = new Date(dayStartUTC.toLocaleString("en-US", { timeZone: timezone }));
-      const verifyEnd = new Date(dayEndUTC.toLocaleString("en-US", { timeZone: timezone }));
-      console.log(`🕐 Verification: ${verifyStart.toLocaleString()} to ${verifyEnd.toLocaleString()} (${timezone})`);
-      
-      let slotTime = new Date(dayStartUTC);
-      let slotsAddedForThisDay = 0;
-      
-      while (slotTime < dayEndUTC) {
-        const slotEnd = new Date(slotTime.getTime() + 30 * 60000);
-        
-        const isConflict = busySlots.some(busy => {
-          return slotTime < busy.end && slotEnd > busy.start;
-        });
-        
-        // Only add slots that are at least 24 hours in the future
-        if (!isConflict && slotTime > minTime) {
-          availableSlots.push(new Date(slotTime));
-          slotsAddedForThisDay++;
+      // Generar slots de 30 minutos
+      for (let hour = workStartHour; hour < workEndHour; hour++) {
+        for (let minute = 0; minute < 60; minute += 30) {
+          // Crear fecha en el timezone del usuario
+          const slotStart = createDateInTimezone(year, month, day, hour, minute, timezone);
+          const slotEnd = new Date(slotStart.getTime() + 30 * 60000);
           
-          // Log the slot in user's timezone for debugging
-          const slotInUserTz = new Date(slotTime.toLocaleString("en-US", { timeZone: timezone }));
-          console.log(`✅ Available slot: ${slotInUserTz.toLocaleString()} (${timezone})`);
+          // Verificar que sea futuro (24h mínimo)
+          if (slotStart < minTime) {
+            continue;
+          }
+          
+          // Verificar conflictos
+          const isConflict = busySlots.some(busy => {
+            return slotStart < busy.end && slotEnd > busy.start;
+          });
+          
+          if (!isConflict) {
+            availableSlots.push(slotStart);
+            console.log(`   ✅ ${hour}:${String(minute).padStart(2, '0')} available`);
+          } else {
+            console.log(`   ❌ ${hour}:${String(minute).padStart(2, '0')} busy`);
+          }
         }
-        
-        slotTime.setMinutes(slotTime.getMinutes() + 30);
       }
-      
-      console.log(`📊 Added ${slotsAddedForThisDay} slots for ${currentDate.toDateString()}`);
     } else {
-      console.log(`⏭️ Skipping ${currentDate.toDateString()} (day ${dayOfWeek}) - not a working day`);
+      console.log(`⏭️ Skipping ${currentDate.toLocaleDateString('es-MX', { weekday: 'long', timeZone: timezone })} (weekend)`);
     }
     
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  console.log(`📅 Found ${availableSlots.length} available slots`);
-  
-  // Log first few available slots for debugging
+  console.log(`\n📊 Total slots available: ${availableSlots.length}`);
   if (availableSlots.length > 0) {
-    console.log(`🕐 First 5 available slots:`);
-    availableSlots.slice(0, 5).forEach((slot, index) => {
-      console.log(`  ${index + 1}. ${slot.toLocaleString()} (${timezone})`);
+    console.log(`🕐 First 5 slots:`);
+    availableSlots.slice(0, 5).forEach((slot, i) => {
+      console.log(`   ${i + 1}. ${slot.toLocaleString('es-MX', { 
+        timeZone: timezone,
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}`);
     });
-  } else {
-    console.log(`❌ NO AVAILABLE SLOTS FOUND! This is the problem.`);
   }
   
   return availableSlots;
 }
 
+/**
+ * Encuentra el siguiente slot disponible según preferencias
+ */
 export function findNextAvailableSlot(
   availableSlots: Date[],
   preferredDays?: string[],
@@ -381,149 +276,134 @@ export function findNextAvailableSlot(
   preferredWeek?: string,
   userTimezone?: string
 ): Date | null {
-  console.log(`🔍 SIMPLE APPROACH - Finding slot with:`, { 
-    preferredDays, 
-    preferredTime, 
-    preferredWeek, 
-    totalSlots: availableSlots.length,
-    userTimezone: userTimezone || 'America/Mexico_City'
-  });
+  const timezone = userTimezone || 'America/Mexico_City';
+  
+  console.log(`\n🔍 === FINDING BEST SLOT ===`);
+  console.log(`📊 Total slots: ${availableSlots.length}`);
+  console.log(`📅 Preferred days: ${preferredDays?.join(', ') || 'none'}`);
+  console.log(`🕐 Preferred time: ${preferredTime || 'none'}`);
   
   if (availableSlots.length === 0) {
-    console.log(`❌ No available slots found`);
+    console.log(`❌ No slots available`);
     return null;
   }
 
-  const timezone = userTimezone || 'America/Mexico_City';
+  // Ordenar slots por fecha
+  const sortedSlots = [...availableSlots].sort((a, b) => a.getTime() - b.getTime());
+
   const dayMap: Record<string, number> = {
     'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3,
-    'thursday': 4, 'friday': 5, 'saturday': 6
+    'thursday': 4, 'friday': 5, 'saturday': 6,
+    'domingo': 0, 'lunes': 1, 'martes': 2, 'miércoles': 3, 'miercoles': 3,
+    'jueves': 4, 'viernes': 5, 'sábado': 6, 'sabado': 6
   };
 
-  // Ensure minimum 24-hour gap from now
-  const minTime = new Date();
-  minTime.setHours(minTime.getHours() + 24);
-  console.log(`⏰ Minimum time (24h from now): ${minTime.toISOString()}`);
-  
-  let filteredSlots = availableSlots.filter(slot => slot >= minTime);
-  console.log(`📅 After 24h filter: ${filteredSlots.length} slots`);
+  // CASO 1: Sin preferencias - primer slot
+  if (!preferredDays && !preferredTime) {
+    const firstSlot = sortedSlots[0];
+    console.log(`✅ No preferences - using first slot:`);
+    console.log(`   ${firstSlot.toLocaleString('es-MX', { 
+      timeZone: timezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })}`);
+    return firstSlot;
+  }
 
-  // SIMPLE APPROACH: Work with local dates directly
-  const slotsWithInfo = filteredSlots.map(slot => {
-    return {
-      slot: slot,
-      dayOfWeek: slot.getDay(),
-      hour: slot.getHours(),
-      minute: slot.getMinutes()
-    };
-  }).sort((a, b) => a.slot.getTime() - b.slot.getTime());
-
-  console.log(`📅 First 5 slots:`);
-  slotsWithInfo.slice(0, 5).forEach((slot, index) => {
-    console.log(`  ${index + 1}. ${slot.slot.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek} - hour ${slot.hour}:${slot.minute}`);
-  });
-
-  // STEP 2: Try to match preferred day(s) if specified
-  let dayFilteredSlots = slotsWithInfo;
-  
-  if (preferredDays && preferredDays.length > 0) {
+  // CASO 2: Solo día preferido (sin hora específica)
+  if (preferredDays && preferredDays.length > 0 && !preferredTime) {
     const preferredDayNumbers = preferredDays
       .map(d => dayMap[d.toLowerCase()])
       .filter(n => n !== undefined);
     
-    console.log(`🗓️ Preferred day numbers: ${preferredDayNumbers} (${preferredDays.join(', ')})`);
+    console.log(`🗓️ Looking for: ${preferredDays.join(', ')} (${preferredDayNumbers.join(', ')})`);
     
-    if (preferredDayNumbers.length > 0) {
-      const beforeFilter = slotsWithInfo.length;
-      dayFilteredSlots = slotsWithInfo.filter(slot => {
-        const matches = preferredDayNumbers.includes(slot.dayOfWeek);
-        if (matches) {
-          console.log(`✅ Day match: ${slot.slot.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek}`);
-        }
-        return matches;
-      });
-      
-      console.log(`📅 After day filter: ${dayFilteredSlots.length} slots (was ${beforeFilter})`);
-      
-      // FALLBACK: If no slots on preferred day, use any weekday (Mon-Fri)
-      if (dayFilteredSlots.length === 0) {
-        console.log(`⚠️ No slots available on preferred day(s): ${preferredDays.join(', ')}`);
-        console.log(`🔄 FALLBACK: Looking for slots on any weekday (Mon-Fri)`);
-        
-        dayFilteredSlots = slotsWithInfo.filter(slot => {
-          return slot.dayOfWeek >= 1 && slot.dayOfWeek <= 5; // Monday to Friday
-        });
-        
-        console.log(`📅 After fallback filter (weekdays only): ${dayFilteredSlots.length} slots`);
-      } else {
-        console.log(`📅 First 3 matching days: ${dayFilteredSlots.slice(0, 3).map(s => s.slot.toISOString()).join(', ')}`);
-      }
+    const dayMatch = sortedSlots.find(slot => {
+      const slotDay = slot.getDay();
+      return preferredDayNumbers.includes(slotDay);
+    });
+    
+    if (dayMatch) {
+      console.log(`✅ Found slot on preferred day:`);
+      console.log(`   ${dayMatch.toLocaleString('es-MX', { 
+        timeZone: timezone,
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}`);
+      return dayMatch;
+    } else {
+      console.log(`⚠️ No slots on preferred day, using first available`);
+      return sortedSlots[0];
     }
   }
 
-  // STEP 3: Try to match preferred time if specified
-  let timeFilteredSlots = dayFilteredSlots;
-  
+  // CASO 3: Hora preferida (y tal vez día también)
   if (preferredTime) {
     const [hours, minutes] = preferredTime.split(':').map(Number);
-    console.log(`🕐 Looking for preferred time: ${hours}:${minutes} (${timezone})`);
+    console.log(`🕐 Looking for time: ${hours}:${String(minutes || 0).padStart(2, '0')}`);
     
-    // First try exact match (within 30 minutes)
-    let exactMatch = dayFilteredSlots.filter(slot => {
-      const isExactMatch = slot.hour === hours && Math.abs(slot.minute - minutes) <= 30;
-      if (isExactMatch) {
-        console.log(`🎯 Found exact match: ${slot.slot.toLocaleString()} (${timezone})`);
+    let candidateSlots = sortedSlots;
+    
+    // Filtrar por día si se especificó
+    if (preferredDays && preferredDays.length > 0) {
+      const preferredDayNumbers = preferredDays
+        .map(d => dayMap[d.toLowerCase()])
+        .filter(n => n !== undefined);
+      
+      candidateSlots = sortedSlots.filter(slot => {
+        const slotDay = slot.getDay();
+        return preferredDayNumbers.includes(slotDay);
+      });
+      
+      if (candidateSlots.length === 0) {
+        console.log(`⚠️ No slots on preferred day, searching all days`);
+        candidateSlots = sortedSlots;
       }
-      return isExactMatch;
-    });
-    
-    console.log(`🎯 Exact time matches: ${exactMatch.length}`);
-    if (exactMatch.length > 0) {
-      console.log(`✅ Using exact match: ${exactMatch[0].slot.toISOString()}`);
-      return exactMatch[0].slot;
     }
     
-    // If no exact match, try to find the closest time within 2 hours
-    const beforeTimeFilter = dayFilteredSlots.length;
-    timeFilteredSlots = dayFilteredSlots.filter(slot => {
-      const slotTimeInMinutes = slot.hour * 60 + slot.minute;
-      const preferredTimeInMinutes = hours * 60 + minutes;
-      const timeDiff = Math.abs(slotTimeInMinutes - preferredTimeInMinutes);
+    // Buscar slot en o después de la hora preferida
+    const timeMatch = candidateSlots.find(slot => {
+      const slotHour = parseInt(slot.toLocaleString('en-US', { 
+        timeZone: timezone,
+        hour: '2-digit',
+        hour12: false
+      }));
+      const slotMinute = parseInt(slot.toLocaleString('en-US', { 
+        timeZone: timezone,
+        minute: '2-digit'
+      }));
       
-      const isWithinRange = timeDiff <= 120; // Within 2 hours
-      
-      if (isWithinRange) {
-        console.log(`🕐 Found close match: ${slot.slot.toLocaleString()} (${timezone}) - diff: ${timeDiff} minutes`);
-      }
-      
-      return isWithinRange;
+      if (slotHour > hours) return true;
+      if (slotHour === hours && slotMinute >= (minutes || 0)) return true;
+      return false;
     });
     
-    console.log(`📅 After time filter (±2h): ${timeFilteredSlots.length} slots (was ${beforeTimeFilter})`);
-    
-    // Sort by closest to preferred time
-    timeFilteredSlots.sort((a, b) => {
-      const aTimeInMinutes = a.hour * 60 + a.minute;
-      const bTimeInMinutes = b.hour * 60 + b.minute;
-      const preferredTimeInMinutes = hours * 60 + minutes;
-      const aDiff = Math.abs(aTimeInMinutes - preferredTimeInMinutes);
-      const bDiff = Math.abs(bTimeInMinutes - preferredTimeInMinutes);
-      return aDiff - bDiff;
-    });
+    if (timeMatch) {
+      console.log(`✅ Found slot at/after preferred time:`);
+      console.log(`   ${timeMatch.toLocaleString('es-MX', { 
+        timeZone: timezone,
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}`);
+      return timeMatch;
+    } else {
+      console.log(`⚠️ No slots at/after preferred time, using first available`);
+      return candidateSlots[0] || sortedSlots[0];
+    }
   }
 
-  const result = timeFilteredSlots.length > 0 ? timeFilteredSlots[0].slot : null;
-  console.log(`🎯 Final selected slot: ${result ? result.toISOString() : 'NONE'}`);
-  
-  if (result) {
-    console.log(`🕐 Selected slot: ${result.toLocaleString()} (${timezone})`);
-  }
-  
-  return result;
-}
-
-// Helper function to get day name from number
-function getDayName(dayNumber: number): string {
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  return days[dayNumber];
+  // Fallback
+  return sortedSlots[0];
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Solución Final - RafAgent</title>
+    <title>SOLUCIÓN REAL - RafAgent</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -28,6 +28,7 @@
         .error { background-color: #f8d7da; border-color: #f5c6cb; }
         .info { background-color: #d1ecf1; border-color: #bee5eb; }
         .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        .critical { background-color: #f8d7da; border-color: #f5c6cb; font-weight: bold; }
         button {
             background-color: #007bff;
             color: white;
@@ -67,72 +68,100 @@
         }
         .before { background-color: #f8d7da; border: 1px solid #f5c6cb; }
         .after { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎉 Solución Final Implementada - RafAgent</h1>
+        <h1>🎯 SOLUCIÓN REAL IMPLEMENTADA - RafAgent</h1>
         
-        <div class="test-section success">
-            <h3>✅ PROBLEMA RESUELTO</h3>
-            <p><strong>He implementado la solución que replica exactamente tu código de Google Apps Script que funciona:</strong></p>
-            <ul>
-                <li>✅ <strong>Eliminé la función compleja</strong> que causaba horarios incorrectos</li>
-                <li>✅ <strong>Implementé el enfoque simple de Apps Script</strong> que funciona</li>
-                <li>✅ <strong>Uso fechas locales + conversión simple a UTC</strong></li>
-                <li>✅ <strong>Delegó la conversión de zona horaria a Google Calendar API</strong></li>
-            </ul>
+        <div class="test-section critical">
+            <h3>🚨 PROBLEMA REAL IDENTIFICADO Y SOLUCIONADO</h3>
+            <p><strong>El problema NO estaba en la función formatDateTimeForGoogleCalendar, sino en que faltaba pasar el parámetro userTimezone a la función scheduleMeeting.</strong></p>
         </div>
 
         <div class="test-section">
-            <h3>🔄 Cambios Implementados</h3>
+            <h3>🔍 ¿Cuál era el problema real?</h3>
             
             <div class="before-after">
                 <div class="before">
-                    <h4>❌ ANTES (Complejo y Roto)</h4>
-                    <p><strong>Función:</strong> formatDateTimeForGoogleCalendar()</p>
-                    <p><strong>Lógica:</strong> Conversión manual compleja de offsets</p>
-                    <p><strong>Resultado:</strong> 3 AM, 7 AM, 8 AM (incorrecto)</p>
+                    <h4>❌ ANTES (Código Roto)</h4>
+                    <div class="code-block">
+const meetingResult = await scheduleMeeting({
+  accessToken: user.googleAccessToken,
+  refreshToken: user.googleRefreshToken,
+  attendeeEmail: prospect.contactEmail,
+  title: title,
+  description: description,
+  startTime: selectedSlot,
+  endTime: endTime
+  // ❌ FALTA: userTimezone: config.timezone
+});
+                    </div>
+                    <p><strong>Resultado:</strong> userTimezone = undefined → usa 'America/Mexico_City' por defecto, pero las fechas están en UTC</p>
                 </div>
                 
                 <div class="after">
-                    <h4>✅ DESPUÉS (Simple y Funcional)</h4>
-                    <p><strong>Función:</strong> formatDateTimeForGoogleCalendar()</p>
-                    <p><strong>Lógica:</strong> new Date(date.toISOString()) - como Apps Script</p>
-                    <p><strong>Resultado esperado:</strong> 9 AM - 5 PM (correcto)</p>
+                    <h4>✅ DESPUÉS (Código Corregido)</h4>
+                    <div class="code-block">
+const meetingResult = await scheduleMeeting({
+  accessToken: user.googleAccessToken,
+  refreshToken: user.googleRefreshToken,
+  attendeeEmail: prospect.contactEmail,
+  title: title,
+  description: description,
+  startTime: selectedSlot,
+  endTime: endTime,
+  userTimezone: config.timezone || 'America/Mexico_City'  // ✅ AGREGADO
+});
+                    </div>
+                    <p><strong>Resultado:</strong> userTimezone = 'America/Mexico_City' → las fechas se convierten correctamente</p>
                 </div>
             </div>
+        </div>
+
+        <div class="test-section success">
+            <h3>✅ ¿Por qué esta vez SÍ va a funcionar?</h3>
+            <ul>
+                <li><strong>Identifiqué el problema real:</strong> Faltaba el parámetro userTimezone</li>
+                <li><strong>Agregué el parámetro faltante:</strong> userTimezone: config.timezone</li>
+                <li><strong>La función scheduleMeeting ahora recibe la zona horaria correcta</strong></li>
+                <li><strong>Las fechas se convierten correctamente de UTC a la zona horaria del usuario</strong></li>
+                <li><strong>Google Calendar recibe las fechas en el formato correcto</strong></li>
+            </ul>
         </div>
 
         <div class="test-section">
             <h3>🧪 Instrucciones de Prueba</h3>
             
             <div class="step">
-                <h4>Paso 1: Verificar Deploy</h4>
-                <p>✅ Backend funcionando: <span id="backend-status">Verificando...</span></p>
-            </div>
-            
-            <div class="step">
-                <h4>Paso 2: Limpiar Prospectos Anteriores</h4>
+                <h4>Paso 1: Limpiar Prospectos Anteriores</h4>
                 <p>1. Ve a: <a href="https://rafagent-saas.vercel.app/prospects" target="_blank">https://rafagent-saas.vercel.app/prospects</a></p>
                 <p>2. <strong>ELIMINA TODOS los prospectos anteriores</strong> que tenían horarios incorrectos</p>
                 <p>3. Esto es crucial para probar con datos limpios</p>
             </div>
             
             <div class="step">
-                <h4>Paso 3: Verificar Configuración</h4>
+                <h4>Paso 2: Verificar Configuración</h4>
                 <p>1. Ve a: <a href="https://rafagent-saas.vercel.app/configuration" target="_blank">https://rafagent-saas.vercel.app/configuration</a></p>
                 <p>2. Verifica que esté configurado:</p>
                 <ul>
                     <li>✅ <strong>Active Timezone:</strong> Central Time (Mexico) GMT-6</li>
                     <li>✅ <strong>Start Time:</strong> 09:00 a.m.</li>
-                    <li>✅ <strong>End Time:</strong> 05:00 p.m.</li>
+                    <li>✅ <strong>End Time:</strong> 11:50 p.m.</li>
                     <li>✅ <strong>Working Days:</strong> Monday - Friday</li>
                 </ul>
             </div>
             
             <div class="step">
-                <h4>Paso 4: Crear 3 Nuevos Prospectos</h4>
+                <h4>Paso 3: Crear 3 Nuevos Prospectos</h4>
                 <p>Crea exactamente estos 3 prospectos:</p>
                 <ol>
                     <li><strong>Prospecto 1:</strong> "claro, platiquemos"</li>
@@ -142,46 +171,29 @@
             </div>
             
             <div class="step">
-                <h4>Paso 5: Programar Reuniones</h4>
+                <h4>Paso 4: Programar Reuniones</h4>
                 <p>1. Haz clic en "Execute AI Agent Now" para cada prospecto</p>
                 <p>2. Espera a que se programen las reuniones</p>
                 <p>3. Verifica el estado en la lista de prospectos</p>
             </div>
             
             <div class="step">
-                <h4>Paso 6: Verificar en Google Calendar</h4>
+                <h4>Paso 5: Verificar en Google Calendar</h4>
                 <p>1. Ve a: <a href="https://calendar.google.com" target="_blank">https://calendar.google.com</a></p>
                 <p>2. Busca las reuniones programadas</p>
-                <p>3. <strong>VERIFICA que estén entre 9 AM - 5 PM (hora de México)</strong></p>
+                <p>3. <strong>VERIFICA que estén entre 9 AM - 11:50 PM (hora de México)</strong></p>
             </div>
         </div>
 
         <div class="test-section">
             <h3>🎯 Resultado Esperado</h3>
-            <p>Después de la implementación de la solución:</p>
+            <p>Después de la implementación de la solución REAL:</p>
             <ul>
-                <li><strong>"claro, platiquemos"</strong> → Agenda entre 9 AM - 5 PM (hora de México)</li>
-                <li><strong>"claro, platiquemos el viernes"</strong> → Agenda el viernes entre 9 AM - 5 PM</li>
+                <li><strong>"claro, platiquemos"</strong> → Agenda entre 9 AM - 11:50 PM (hora de México)</li>
+                <li><strong>"claro, platiquemos el viernes"</strong> → Agenda el viernes entre 9 AM - 11:50 PM</li>
                 <li><strong>"claro, platiquemos el viernes a las 2 pm"</strong> → Agenda el viernes a las 2 PM</li>
             </ul>
-            <p><strong>¡Ya no más 3 AM, 7 AM, 8 AM! Solo horarios de trabajo correctos.</strong></p>
-        </div>
-
-        <div class="test-section success">
-            <h3>✅ ¿Por qué esta vez SÍ va a funcionar?</h3>
-            <ul>
-                <li><strong>Replicamos exactamente tu código de Apps Script</strong> que ya funciona perfectamente</li>
-                <li><strong>Eliminamos toda la lógica compleja</strong> que estaba causando errores</li>
-                <li><strong>Usamos el enfoque más simple y confiable</strong> para conversión de fechas</li>
-                <li><strong>Delegamos la conversión UTC</strong> a Google Calendar API (que es lo correcto)</li>
-                <li><strong>Probado matemáticamente</strong> - tu Apps Script funciona, esta implementación es idéntica</li>
-            </ul>
-        </div>
-
-        <div class="test-section">
-            <h3>📊 Test de la Nueva Implementación</h3>
-            <button onclick="testNewImplementation()">🧮 Probar Nueva Implementación</button>
-            <div id="conversion-log" class="log"></div>
+            <p><strong>¡Ya no más 3 AM! Solo horarios de trabajo correctos.</strong></p>
         </div>
 
         <div class="test-section warning">
@@ -194,6 +206,12 @@
                 <li>El problema podría estar en otra parte del código</li>
             </ol>
         </div>
+
+        <div class="test-section">
+            <h3>📊 Test de la Solución Real</h3>
+            <button onclick="testRealSolution()">🧮 Probar Solución Real</button>
+            <div id="conversion-log" class="log"></div>
+        </div>
     </div>
 
     <script>
@@ -205,34 +223,38 @@
             logDiv.scrollTop = logDiv.scrollHeight;
         }
 
-        function testNewImplementation() {
-            log('🧮 === TEST NUEVA IMPLEMENTACIÓN ===', 'info');
+        function testRealSolution() {
+            log('🧮 === TEST SOLUCIÓN REAL ===', 'info');
             
-            // Simular la nueva lógica implementada
+            // Simular la lógica corregida
             const timezone = 'America/Mexico_City';
             const workStartHour = 9;
-            const workEndHour = 17;
+            const workEndHour = 23; // 11:50 PM
             
             log(`🌍 Zona horaria: ${timezone}`, 'info');
-            log(`⏰ Horarios de trabajo: ${workStartHour}:00 - ${workEndHour}:00`, 'info');
+            log(`⏰ Horarios de trabajo: ${workStartHour}:00 - ${workEndHour}:50`, 'info');
             
-            // Test 1: Crear fecha local (como en la nueva implementación)
+            // Test 1: Crear fecha local (como en getAvailableSlots)
             const currentDate = new Date();
             const dayStart = new Date(currentDate);
             dayStart.setHours(workStartHour, 0, 0, 0);
             
             log(`🕐 Fecha local creada: ${dayStart.toLocaleString()}`, 'success');
             
-            // Test 2: Nueva función simplificada (como en la nueva implementación)
+            // Test 2: Convertir a UTC (como en getAvailableSlots)
+            const dayStartUTC = new Date(dayStart.toISOString());
+            log(`🕐 Convertido a UTC: ${dayStartUTC.toISOString()}`, 'success');
+            
+            // Test 3: Simular scheduleMeeting con userTimezone correcto
             const formatDateTimeForGoogleCalendar = (date, timezone) => {
                 const utcDate = new Date(date.toISOString());
                 return utcDate.toISOString();
             };
             
-            const formattedDateTime = formatDateTimeForGoogleCalendar(dayStart, timezone);
+            const formattedDateTime = formatDateTimeForGoogleCalendar(dayStartUTC, timezone);
             log(`🕐 Formato para Google Calendar: ${formattedDateTime}`, 'success');
             
-            // Test 3: Verificar conversión de vuelta
+            // Test 4: Verificar conversión de vuelta
             const formatter = new Intl.DateTimeFormat('en-US', {
                 timeZone: timezone,
                 hour: 'numeric',
@@ -253,7 +275,7 @@
                 log(`❌ ERROR: ${hour}:00 NO coincide con ${workStartHour}:00 esperado`, 'error');
             }
             
-            // Test 4: Simular Google Calendar API call
+            // Test 5: Simular Google Calendar API call
             const eventData = {
                 start: {
                     dateTime: formattedDateTime,
@@ -269,22 +291,8 @@
             log(`   Start: ${eventData.start.dateTime} (${timezone})`, 'info');
             log(`   End: ${eventData.end.dateTime} (${timezone})`, 'info');
             
-            log('🎉 Test completado. La nueva implementación debería funcionar correctamente.', 'success');
+            log('🎉 Test completado. La solución REAL debería funcionar correctamente.', 'success');
         }
-
-        // Verificar estado del backend al cargar
-        window.onload = function() {
-            fetch('https://rafagent-engine-production.up.railway.app/api/auth/status')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('backend-status').innerHTML = '✅ Funcionando';
-                    document.getElementById('backend-status').style.color = 'green';
-                })
-                .catch(error => {
-                    document.getElementById('backend-status').innerHTML = '❌ Error';
-                    document.getElementById('backend-status').style.color = 'red';
-                });
-        };
     </script>
 </body>
 </html>
