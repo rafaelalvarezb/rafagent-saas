@@ -166,20 +166,13 @@ export async function scheduleMeeting(params: ScheduleMeetingParamsExtended & { 
     // Use user's timezone or default to Mexico City
     const timezone = params.userTimezone || 'America/Mexico_City';
     
-    console.log(`🗓️ Scheduling meeting in timezone: ${timezone}`);
-    console.log(`📅 Start time (UTC): ${params.startTime.toISOString()}`);
-    console.log(`📅 End time (UTC): ${params.endTime.toISOString()}`);
-    
-    // Convert times to user's timezone for display
-    const startInUserTz = new Date(params.startTime.toLocaleString("en-US", { timeZone: timezone }));
-    const endInUserTz = new Date(params.endTime.toLocaleString("en-US", { timeZone: timezone }));
-    
-    console.log(`🕐 Start time (${timezone}): ${startInUserTz.toLocaleString()}`);
-    console.log(`🕐 End time (${timezone}): ${endInUserTz.toLocaleString()}`);
+    console.log(`🗓️ SIMPLE APPROACH - Scheduling meeting in timezone: ${timezone}`);
+    console.log(`📅 Start time (local): ${params.startTime.toLocaleString()}`);
+    console.log(`📅 End time (local): ${params.endTime.toLocaleString()}`);
     
     // Verify the times are in working hours
-    const startHour = startInUserTz.getHours();
-    const endHour = endInUserTz.getHours();
+    const startHour = params.startTime.getHours();
+    const endHour = params.endTime.getHours();
     
     console.log(`⏰ Meeting hours: ${startHour}:00 - ${endHour}:00 (${timezone})`);
     
@@ -187,6 +180,7 @@ export async function scheduleMeeting(params: ScheduleMeetingParamsExtended & { 
       console.warn(`⚠️ Warning: Meeting scheduled outside typical working hours (${startHour}:00)`);
     }
     
+    // SIMPLE APPROACH: Create event with local dates and timezone
     const event = {
       summary: params.title,
       description: params.description,
@@ -228,7 +222,7 @@ export async function scheduleMeeting(params: ScheduleMeetingParamsExtended & { 
 
     console.log(`✅ Meeting scheduled successfully: ${result.data.id}`);
     console.log(`🔗 Meet link: ${meetLink}`);
-    console.log(`📅 Final meeting time: ${startInUserTz.toLocaleString()} (${timezone})`);
+    console.log(`📅 Final meeting time: ${params.startTime.toLocaleString()} (${timezone})`);
 
     return {
       ...result.data,
@@ -258,7 +252,7 @@ export async function getAvailableSlots(
 ): Promise<Date[]> {
   const calendar = getCalendarClient(accessToken, refreshToken);
   
-  console.log(`🔍 DIRECT APPROACH - Getting available slots for timezone: ${timezone}`);
+  console.log(`🔍 SIMPLE APPROACH - Getting available slots for timezone: ${timezone}`);
   console.log(`📅 Search period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
   console.log(`🕐 Working hours: ${workStartHour}:00 - ${workEndHour}:00`);
   
@@ -297,7 +291,7 @@ export async function getAvailableSlots(
   minTime.setHours(minTime.getHours() + 24);
   console.log(`⏰ Minimum time (24h from now): ${minTime.toISOString()}`);
 
-  // DIRECT APPROACH: Create dates directly in the user's timezone
+  // SIMPLE APPROACH: Create dates in user's timezone, NO UTC conversion
   const currentDate = new Date(startDate);
   
   while (currentDate < endDate) {
@@ -307,7 +301,7 @@ export async function getAvailableSlots(
     if (workingDayNumbers.includes(dayOfWeek)) {
       console.log(`📅 Checking ${currentDate.toDateString()} (day ${dayOfWeek})`);
       
-      // DIRECT METHOD: Create dates in user's timezone using setHours
+      // SIMPLE METHOD: Create dates in user's timezone, keep them as local dates
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
       const day = currentDate.getDate();
@@ -316,23 +310,13 @@ export async function getAvailableSlots(
       const dayStart = new Date(year, month, day, workStartHour, 0, 0, 0);
       const dayEnd = new Date(year, month, day, workEndHour, 0, 0, 0);
       
-      console.log(`🕐 Direct creation: ${dayStart.toLocaleString()} to ${dayEnd.toLocaleString()} (local time)`);
+      console.log(`🕐 Local creation: ${dayStart.toLocaleString()} to ${dayEnd.toLocaleString()} (${timezone})`);
       
-      // Convert to UTC for Google Calendar API
-      const dayStartUTC = new Date(dayStart.getTime() - (dayStart.getTimezoneOffset() * 60000));
-      const dayEndUTC = new Date(dayEnd.getTime() - (dayEnd.getTimezoneOffset() * 60000));
-      
-      console.log(`🕐 UTC conversion: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
-      
-      // Verify the conversion
-      const verifyStart = new Date(dayStartUTC.toLocaleString("en-US", { timeZone: timezone }));
-      const verifyEnd = new Date(dayEndUTC.toLocaleString("en-US", { timeZone: timezone }));
-      console.log(`🕐 Verification: ${verifyStart.toLocaleString()} to ${verifyEnd.toLocaleString()} (${timezone})`);
-      
-      let slotTime = new Date(dayStartUTC);
+      // NO UTC conversion - use local dates directly
+      let slotTime = new Date(dayStart);
       let slotsAddedForThisDay = 0;
       
-      while (slotTime < dayEndUTC) {
+      while (slotTime < dayEnd) {
         const slotEnd = new Date(slotTime.getTime() + 30 * 60000);
         
         const isConflict = busySlots.some(busy => {
@@ -344,9 +328,7 @@ export async function getAvailableSlots(
           availableSlots.push(new Date(slotTime));
           slotsAddedForThisDay++;
           
-          // Log the slot in user's timezone for debugging
-          const slotInUserTz = new Date(slotTime.toLocaleString("en-US", { timeZone: timezone }));
-          console.log(`✅ Available slot: ${slotInUserTz.toLocaleString()} (${timezone})`);
+          console.log(`✅ Available slot: ${slotTime.toLocaleString()} (${timezone})`);
         }
         
         slotTime.setMinutes(slotTime.getMinutes() + 30);
@@ -366,8 +348,7 @@ export async function getAvailableSlots(
   if (availableSlots.length > 0) {
     console.log(`🕐 First 5 available slots:`);
     availableSlots.slice(0, 5).forEach((slot, index) => {
-      const localTime = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
-      console.log(`  ${index + 1}. UTC: ${slot.toISOString()} -> User: ${localTime.toLocaleString()} (${timezone})`);
+      console.log(`  ${index + 1}. ${slot.toLocaleString()} (${timezone})`);
     });
   } else {
     console.log(`❌ NO AVAILABLE SLOTS FOUND! This is the problem.`);
@@ -383,7 +364,7 @@ export function findNextAvailableSlot(
   preferredWeek?: string,
   userTimezone?: string
 ): Date | null {
-  console.log(`🔍 DIRECT APPROACH - Finding slot with:`, { 
+  console.log(`🔍 SIMPLE APPROACH - Finding slot with:`, { 
     preferredDays, 
     preferredTime, 
     preferredWeek, 
@@ -410,27 +391,23 @@ export function findNextAvailableSlot(
   let filteredSlots = availableSlots.filter(slot => slot >= minTime);
   console.log(`📅 After 24h filter: ${filteredSlots.length} slots`);
 
-  // DIRECT APPROACH: Work with UTC slots, convert to user timezone for display
-  const slotsInUserTz = filteredSlots.map(slot => {
-    // Convert UTC slot to user timezone for display
-    const slotInUserTz = new Date(slot.toLocaleString("en-US", { timeZone: timezone }));
-    
+  // SIMPLE APPROACH: Work with local dates directly
+  const slotsWithInfo = filteredSlots.map(slot => {
     return {
-      utc: slot,
-      dayOfWeek: slotInUserTz.getDay(), // Use local day of week
-      hour: slotInUserTz.getHours(),
-      minute: slotInUserTz.getMinutes()
+      slot: slot,
+      dayOfWeek: slot.getDay(),
+      hour: slot.getHours(),
+      minute: slot.getMinutes()
     };
-  }).sort((a, b) => a.utc.getTime() - b.utc.getTime());
+  }).sort((a, b) => a.slot.getTime() - b.slot.getTime());
 
-  console.log(`📅 First 5 slots in user timezone:`);
-  slotsInUserTz.slice(0, 5).forEach((slot, index) => {
-    const slotInUserTz = new Date(slot.utc.toLocaleString("en-US", { timeZone: timezone }));
-    console.log(`  ${index + 1}. ${slotInUserTz.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek} - hour ${slot.hour}:${slot.minute}`);
+  console.log(`📅 First 5 slots:`);
+  slotsWithInfo.slice(0, 5).forEach((slot, index) => {
+    console.log(`  ${index + 1}. ${slot.slot.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek} - hour ${slot.hour}:${slot.minute}`);
   });
 
   // STEP 2: Try to match preferred day(s) if specified
-  let dayFilteredSlots = slotsInUserTz;
+  let dayFilteredSlots = slotsWithInfo;
   
   if (preferredDays && preferredDays.length > 0) {
     const preferredDayNumbers = preferredDays
@@ -440,12 +417,11 @@ export function findNextAvailableSlot(
     console.log(`🗓️ Preferred day numbers: ${preferredDayNumbers} (${preferredDays.join(', ')})`);
     
     if (preferredDayNumbers.length > 0) {
-      const beforeFilter = slotsInUserTz.length;
-      dayFilteredSlots = slotsInUserTz.filter(slot => {
+      const beforeFilter = slotsWithInfo.length;
+      dayFilteredSlots = slotsWithInfo.filter(slot => {
         const matches = preferredDayNumbers.includes(slot.dayOfWeek);
         if (matches) {
-          const slotInUserTz = new Date(slot.utc.toLocaleString("en-US", { timeZone: timezone }));
-          console.log(`✅ Day match: ${slotInUserTz.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek}`);
+          console.log(`✅ Day match: ${slot.slot.toLocaleString()} (${timezone}) - day ${slot.dayOfWeek}`);
         }
         return matches;
       });
@@ -457,13 +433,13 @@ export function findNextAvailableSlot(
         console.log(`⚠️ No slots available on preferred day(s): ${preferredDays.join(', ')}`);
         console.log(`🔄 FALLBACK: Looking for slots on any weekday (Mon-Fri)`);
         
-        dayFilteredSlots = slotsInUserTz.filter(slot => {
+        dayFilteredSlots = slotsWithInfo.filter(slot => {
           return slot.dayOfWeek >= 1 && slot.dayOfWeek <= 5; // Monday to Friday
         });
         
         console.log(`📅 After fallback filter (weekdays only): ${dayFilteredSlots.length} slots`);
       } else {
-        console.log(`📅 First 3 matching days: ${dayFilteredSlots.slice(0, 3).map(s => s.utc.toISOString()).join(', ')}`);
+        console.log(`📅 First 3 matching days: ${dayFilteredSlots.slice(0, 3).map(s => s.slot.toISOString()).join(', ')}`);
       }
     }
   }
@@ -479,16 +455,15 @@ export function findNextAvailableSlot(
     let exactMatch = dayFilteredSlots.filter(slot => {
       const isExactMatch = slot.hour === hours && Math.abs(slot.minute - minutes) <= 30;
       if (isExactMatch) {
-        const slotInUserTz = new Date(slot.utc.toLocaleString("en-US", { timeZone: timezone }));
-        console.log(`🎯 Found exact match: ${slotInUserTz.toLocaleString()} (${timezone})`);
+        console.log(`🎯 Found exact match: ${slot.slot.toLocaleString()} (${timezone})`);
       }
       return isExactMatch;
     });
     
     console.log(`🎯 Exact time matches: ${exactMatch.length}`);
     if (exactMatch.length > 0) {
-      console.log(`✅ Using exact match: ${exactMatch[0].utc.toISOString()}`);
-      return exactMatch[0].utc;
+      console.log(`✅ Using exact match: ${exactMatch[0].slot.toISOString()}`);
+      return exactMatch[0].slot;
     }
     
     // If no exact match, try to find the closest time within 2 hours
@@ -501,8 +476,7 @@ export function findNextAvailableSlot(
       const isWithinRange = timeDiff <= 120; // Within 2 hours
       
       if (isWithinRange) {
-        const slotInUserTz = new Date(slot.utc.toLocaleString("en-US", { timeZone: timezone }));
-        console.log(`🕐 Found close match: ${slotInUserTz.toLocaleString()} (${timezone}) - diff: ${timeDiff} minutes`);
+        console.log(`🕐 Found close match: ${slot.slot.toLocaleString()} (${timezone}) - diff: ${timeDiff} minutes`);
       }
       
       return isWithinRange;
@@ -521,12 +495,11 @@ export function findNextAvailableSlot(
     });
   }
 
-  const result = timeFilteredSlots.length > 0 ? timeFilteredSlots[0].utc : null;
+  const result = timeFilteredSlots.length > 0 ? timeFilteredSlots[0].slot : null;
   console.log(`🎯 Final selected slot: ${result ? result.toISOString() : 'NONE'}`);
   
   if (result) {
-    const resultInUserTz = new Date(result.toLocaleString("en-US", { timeZone: timezone }));
-    console.log(`🕐 Selected slot in user timezone: ${resultInUserTz.toLocaleString()} (${timezone})`);
+    console.log(`🕐 Selected slot: ${result.toLocaleString()} (${timezone})`);
   }
   
   return result;
