@@ -291,7 +291,7 @@ export async function getAvailableSlots(
   minTime.setHours(minTime.getHours() + 24);
   console.log(`⏰ Minimum time (24h from now): ${minTime.toISOString()}`);
 
-  // SIMPLE APPROACH: Create dates in user's timezone, NO UTC conversion
+  // CORRECTED APPROACH: Create dates in user's timezone, then convert to UTC for Google Calendar
   const currentDate = new Date(startDate);
   
   while (currentDate < endDate) {
@@ -301,22 +301,32 @@ export async function getAvailableSlots(
     if (workingDayNumbers.includes(dayOfWeek)) {
       console.log(`📅 Checking ${currentDate.toDateString()} (day ${dayOfWeek})`);
       
-      // SIMPLE METHOD: Create dates in user's timezone, keep them as local dates
+      // Create dates in user's timezone
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
       const day = currentDate.getDate();
       
-      // Create start and end times directly in user's timezone
+      // Create start and end times in user's timezone
       const dayStart = new Date(year, month, day, workStartHour, 0, 0, 0);
       const dayEnd = new Date(year, month, day, workEndHour, 0, 0, 0);
       
       console.log(`🕐 Local creation: ${dayStart.toLocaleString()} to ${dayEnd.toLocaleString()} (${timezone})`);
       
-      // NO UTC conversion - use local dates directly
-      let slotTime = new Date(dayStart);
+      // Convert to UTC for Google Calendar API
+      const dayStartUTC = new Date(dayStart.getTime() - (dayStart.getTimezoneOffset() * 60000));
+      const dayEndUTC = new Date(dayEnd.getTime() - (dayEnd.getTimezoneOffset() * 60000));
+      
+      console.log(`🕐 UTC conversion: ${dayStartUTC.toISOString()} to ${dayEndUTC.toISOString()}`);
+      
+      // Verify the conversion
+      const verifyStart = new Date(dayStartUTC.toLocaleString("en-US", { timeZone: timezone }));
+      const verifyEnd = new Date(dayEndUTC.toLocaleString("en-US", { timeZone: timezone }));
+      console.log(`🕐 Verification: ${verifyStart.toLocaleString()} to ${verifyEnd.toLocaleString()} (${timezone})`);
+      
+      let slotTime = new Date(dayStartUTC);
       let slotsAddedForThisDay = 0;
       
-      while (slotTime < dayEnd) {
+      while (slotTime < dayEndUTC) {
         const slotEnd = new Date(slotTime.getTime() + 30 * 60000);
         
         const isConflict = busySlots.some(busy => {
@@ -328,7 +338,9 @@ export async function getAvailableSlots(
           availableSlots.push(new Date(slotTime));
           slotsAddedForThisDay++;
           
-          console.log(`✅ Available slot: ${slotTime.toLocaleString()} (${timezone})`);
+          // Log the slot in user's timezone for debugging
+          const slotInUserTz = new Date(slotTime.toLocaleString("en-US", { timeZone: timezone }));
+          console.log(`✅ Available slot: ${slotInUserTz.toLocaleString()} (${timezone})`);
         }
         
         slotTime.setMinutes(slotTime.getMinutes() + 30);
