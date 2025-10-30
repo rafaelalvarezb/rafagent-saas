@@ -55,46 +55,75 @@ export async function callGeminiApi(prompt: string): Promise<string> {
 
 export async function classifyResponse(emailBody: string): Promise<ClassificationResult> {
   const classificationPrompt = `
-Analyze ONLY the LATEST customer reply in an email thread.
-Perform FIVE tasks on the latest reply:
-1. Classify it into ONE of the following categories: INTERESTED, NOT_INTERESTED, REFERRAL, WRONG_EMAIL, OUT_OF_OFFICE, GENERAL_QUESTION, BOUNCE, REVIEW_ANSWER.
-2. If INTERESTED and they EXPLICITLY mention specific days/times, extract them IN ANY LANGUAGE.
-3. If REFERRAL, extract the new email address.
+You are analyzing a customer's email reply to determine their interest in scheduling a meeting.
+
+⚠️ CRITICAL RULES - READ CAREFULLY:
+
+1. **IGNORE email headers/metadata** - Lines starting with "El jue", "On Thu", timestamps (like "10:43"), quoted text (">"), email addresses in angle brackets, etc. These are NOT the customer's words.
+
+2. **ONLY analyze the customer's actual written message** - The first few lines of new text they typed.
+
+3. **DO NOT extract dates/times from email metadata** - Only extract if the customer explicitly wrote them in their message.
+
+4. **If NO day/time is mentioned** - Output ONLY the category (like "INTERESTED"), nothing else.
 
 CATEGORY DEFINITIONS:
-- INTERESTED: Clear interest in meeting/call (e.g., "yes, let's talk", "I'm interested", "when can we meet")
+- INTERESTED: Clear interest in meeting/call (e.g., "yes, let's talk", "I'm interested", "claro, platiquemos")
 - NOT_INTERESTED: Clear rejection (e.g., "not interested", "not a good fit", "no thanks")
-- REFERRAL: Mentions someone else to contact (e.g., "talk to my colleague", "her email is...", "contact John instead")
+- REFERRAL: Mentions someone else to contact (e.g., "talk to my colleague", "contact John instead")
 - WRONG_EMAIL: Wrong person/email (e.g., "wrong person", "I don't work there")
-- OUT_OF_OFFICE: OOO messages (e.g., "out of office", "vacation", "away until", "OOO")
-- GENERAL_QUESTION: Questions seeking info (e.g., "what is this about?", "more information", "tell me more")
-- BOUNCE: Email delivery failures (e.g., "undeliverable", "mailbox full", "invalid email")
+- OUT_OF_OFFICE: OOO messages (e.g., "out of office", "vacation", "away until")
+- GENERAL_QUESTION: Questions seeking info (e.g., "what is this about?", "tell me more")
+- BOUNCE: Email delivery failures (e.g., "undeliverable", "mailbox full")
 - REVIEW_ANSWER: Unclear/ambiguous responses that don't fit other categories
 
-VERY IMPORTANT RULES FOR DAY/TIME EXTRACTION:
+DAY/TIME EXTRACTION (ONLY if customer explicitly wrote them):
 - Extract days in ENGLISH lowercase (monday, tuesday, wednesday, thursday, friday, saturday, sunday)
-- Convert ANY language to English: "viernes"→friday, "lunes"→monday, "jueves"→thursday, "miércoles"→wednesday, "martes"→tuesday
-- Convert ANY time format to 24-hour HH:MM: "3pm"→15:00, "10am"→10:00, "noon"→12:00, "2:30pm"→14:30
-- If timezone mentioned (e.g., "hora argentina", "PST", "GMT-3"), include it as TIMEZONE:Argentina or TIMEZONE:PST
-- ALWAYS extract if mentioned, even in casual language
+- Convert ANY language: "viernes"→friday, "lunes"→monday, "jueves"→thursday, "miércoles"→wednesday
+- Convert time to 24-hour HH:MM: "3pm"→15:00, "10am"→10:00, "1pm"→13:00
 
 EXACT Output Format:
-Line 1: The category in uppercase.
-Line 2 (IF APPLIES): DAYS:friday
-Line 3 (IF APPLIES): TIME:15:00
-Line 4 (IF APPLIES): TIMEZONE:Argentina (or country/timezone name if mentioned)
-Line 5 (IF APPLIES): WEEK:next
-Line 6 (IF APPLIES): EMAIL:new.contact@company.com
+- Line 1: The category in uppercase
+- Line 2+ (ONLY if customer mentioned): DAYS:friday, TIME:15:00, etc.
 
-COMPREHENSIVE EXAMPLES:
-- "viernes a las 3pm" → DAYS:friday TIME:15:00
-- "el jueves a las 10am" → DAYS:thursday TIME:10:00
-- "martes 2pm" → DAYS:tuesday TIME:14:00
-- "next Monday at 9am" → DAYS:monday TIME:09:00 WEEK:next
-- "Friday at 3pm Argentina time" → DAYS:friday TIME:15:00 TIMEZONE:Argentina
-- "miércoles 12pm hora de Argentina" → DAYS:wednesday TIME:12:00 TIMEZONE:Argentina
-- "Thursday 2:30pm PST" → DAYS:thursday TIME:14:30 TIMEZONE:PST
-- "el viernes 15:00 hora México" → DAYS:friday TIME:15:00 TIMEZONE:Mexico
+EXAMPLES:
+
+Example 1 - NO PREFERENCES:
+Customer message: "Claro, platiquemos"
+Correct output:
+INTERESTED
+
+Example 2 - NO PREFERENCES (ignore metadata):
+Customer message: "Claro, platiquemos
+
+El jue, 30 oct 2025 a las 10:43, <email@gmail.com> escribió:"
+Correct output:
+INTERESTED
+(DO NOT output DAYS:thursday or TIME:10:43 - those are from the metadata!)
+
+Example 3 - DAY PREFERENCE:
+Customer message: "Podemos el lunes?"
+Correct output:
+INTERESTED
+DAYS:monday
+
+Example 4 - DAY AND TIME PREFERENCE:
+Customer message: "Podemos el lunes a la 1 pm?"
+Correct output:
+INTERESTED
+DAYS:monday
+TIME:13:00
+
+Example 5 - TIME ONLY:
+Customer message: "Sí, a las 3pm está bien"
+Correct output:
+INTERESTED
+TIME:15:00
+
+Example 6 - ANOTHER NO PREFERENCE:
+Customer message: "Sure, let's chat"
+Correct output:
+INTERESTED
 
 Email to analyze:
 ---
