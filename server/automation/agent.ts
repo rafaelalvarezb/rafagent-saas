@@ -11,7 +11,7 @@
 
 import { google } from 'googleapis';
 import { storage } from '../storage';
-import { sendEmail, getThreadMessages, getMessageBody } from '../services/gmail';
+import { sendEmail, getThreadMessages, getMessageBody, cleanEmailForAI } from '../services/gmail';
 import { classifyResponse, replaceTemplateVariables } from '../services/ai';
 import { getAvailableSlots, findNextAvailableSlot, scheduleMeeting } from '../services/calendar';
 import { isWithinWorkingHours, getWorkingHoursFromConfig, debugWorkingHours } from '../utils/workingHours';
@@ -479,9 +479,13 @@ async function analyzeProspectResponse(user: any, prospect: any): Promise<boolea
   }
 
   const body = await getMessageBody(lastMessage);
-  console.log(`Response body: ${body.substring(0, 200)}...`);
+  console.log(`Response body (raw): ${body.substring(0, 200)}...`);
   
-  const classification = await classifyResponse(body);
+  // Clean the email body to extract ONLY the prospect's actual response
+  const cleanedBody = cleanEmailForAI(body);
+  console.log(`Response body (cleaned): ${cleanedBody}`);
+  
+  const classification = await classifyResponse(cleanedBody);
   console.log(`AI Classification: ${classification.category}`);
 
   let newStatus = '';

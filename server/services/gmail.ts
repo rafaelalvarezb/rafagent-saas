@@ -248,3 +248,65 @@ export async function getMessageBody(message: any): Promise<string> {
   
   return '';
 }
+
+/**
+ * Clean email body for AI analysis - extract ONLY the prospect's actual response
+ * Removes email headers, quoted text, and thread metadata
+ */
+export function cleanEmailForAI(emailBody: string): string {
+  // Split by lines
+  const lines = emailBody.split('\n');
+  const cleanedLines: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Stop when we hit email thread headers (in any language)
+    // Spanish: "El jue", "El lun", "El mar", "El mié", "El vie", "El sáb", "El dom"
+    // English: "On Mon", "On Tue", "On Wed", "On Thu", "On Fri", "On Sat", "On Sun"
+    if (
+      line.startsWith('El jue') || 
+      line.startsWith('El lun') || 
+      line.startsWith('El mar') || 
+      line.startsWith('El mié') || 
+      line.startsWith('El vie') || 
+      line.startsWith('El sáb') || 
+      line.startsWith('El dom') ||
+      line.startsWith('On Mon') || 
+      line.startsWith('On Tue') || 
+      line.startsWith('On Wed') || 
+      line.startsWith('On Thu') || 
+      line.startsWith('On Fri') || 
+      line.startsWith('On Sat') || 
+      line.startsWith('On Sun') ||
+      line.includes('escribió:') ||
+      line.includes('wrote:')
+    ) {
+      // Stop here - everything after is email thread metadata
+      break;
+    }
+    
+    // Skip quoted lines (lines starting with ">")
+    if (line.startsWith('>')) {
+      continue;
+    }
+    
+    // Skip empty lines at the start
+    if (cleanedLines.length === 0 && line === '') {
+      continue;
+    }
+    
+    // Add this line
+    cleanedLines.push(lines[i]); // Keep original formatting (with original spacing)
+  }
+  
+  // Join and trim
+  const result = cleanedLines.join('\n').trim();
+  
+  console.log(`🧹 Email cleaning:`)
+  console.log(`   Original length: ${emailBody.length} chars`);
+  console.log(`   Cleaned length: ${result.length} chars`);
+  console.log(`   Cleaned text: "${result}"`);
+  
+  return result;
+}
