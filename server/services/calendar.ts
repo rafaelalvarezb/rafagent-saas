@@ -180,17 +180,17 @@ export async function scheduleMeeting(params: ScheduleMeetingParamsExtended & { 
       console.warn(`⚠️ Warning: Meeting scheduled outside typical working hours (${startHour}:00)`);
     }
     
-    // SIMPLE APPROACH: Create event with local dates and timezone
+    // APPS SCRIPT APPROACH: Create event with UTC dates, NO timezone parameter
     const event = {
       summary: params.title,
       description: params.description,
       start: {
         dateTime: params.startTime.toISOString(),
-        timeZone: timezone,
+        // NO timeZone parameter - let Google Calendar handle it
       },
       end: {
         dateTime: params.endTime.toISOString(),
-        timeZone: timezone,
+        // NO timeZone parameter - let Google Calendar handle it
       },
       attendees: [
         { email: params.attendeeEmail }
