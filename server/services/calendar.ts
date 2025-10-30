@@ -105,35 +105,19 @@ function convertToUserTimezone(date: Date, fromTimezone: string, toTimezone: str
 /**
  * Get timezone offset in minutes using proper timezone detection
  */
+function getTimezoneOffset(timezone: string): number {
+  // Get the timezone offset in minutes for a specific timezone
+  const now = new Date();
+  const utc = new Date(now.getTime() + (now.getTimezoneOffset() * 60000));
+  const targetTime = new Date(utc.toLocaleString("en-US", { timeZone: timezone }));
+  return utc.getTime() - targetTime.getTime();
+}
+
+/**
+ * Get timezone offset in hours using proper timezone detection
+ */
 function getTimezoneOffsetHours(timezone: string): number {
-  // Simplified timezone offset mapping in HOURS
-  const timezoneOffsets: Record<string, number> = {
-    'America/Mexico_City': 6,      // UTC-6
-    'America/New_York': 5,         // UTC-5 (EST) / 4 (EDT)
-    'America/Chicago': 6,          // UTC-6 (CST) / 5 (CDT)
-    'America/Denver': 7,           // UTC-7 (MST) / 6 (MDT)
-    'America/Los_Angeles': 8,      // UTC-8 (PST) / 7 (PDT)
-    'America/Toronto': 5,          // UTC-5 (EST) / 4 (EDT)
-    'America/Vancouver': 8,        // UTC-8 (PST) / 7 (PDT)
-    'Europe/London': 0,            // UTC+0 (GMT) / -1 (BST)
-    'Europe/Paris': -1,            // UTC+1 (CET) / -2 (CEST)
-    'Europe/Madrid': -1,           // UTC+1 (CET) / -2 (CEST)
-    'Europe/Berlin': -1,           // UTC+1 (CET) / -2 (CEST)
-    'Europe/Rome': -1,             // UTC+1 (CET) / -2 (CEST)
-    'Asia/Tokyo': -9,              // UTC+9
-    'Asia/Shanghai': -8,           // UTC+8
-    'Asia/Kolkata': -5.5,          // UTC+5:30
-    'Asia/Singapore': -8,          // UTC+8
-    'Australia/Sydney': -10,       // UTC+10 / -11 (DST)
-    'America/Argentina/Buenos_Aires': 3,  // UTC-3
-    'America/Sao_Paulo': 3,        // UTC-3
-    'America/Santiago': 3,         // UTC-3
-    'America/Bogota': 5,           // UTC-5
-    'America/Lima': 5,             // UTC-5
-    'America/Caracas': 4,          // UTC-4
-  };
-  
-  return timezoneOffsets[timezone] || 6; // Default to Mexico City (UTC-6)
+  return getTimezoneOffset(timezone) / (1000 * 60 * 60);
 }
 
 /**
@@ -180,17 +164,38 @@ export async function scheduleMeeting(params: ScheduleMeetingParamsExtended & { 
       console.warn(`⚠️ Warning: Meeting scheduled outside typical working hours (${startHour}:00)`);
     }
     
-    // APPS SCRIPT APPROACH: Create event with UTC dates, NO timezone parameter
+    // GOOGLE CALENDAR API CORRECT FORMAT: Local datetime with timezone
+    const formatDateTimeForGoogleCalendar = (date: Date, timezone: string): string => {
+      // Create a date in the user's timezone
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      
+      // Get timezone offset for the specific timezone
+      const tempDate = new Date();
+      const utcTime = tempDate.getTime() + (tempDate.getTimezoneOffset() * 60000);
+      const targetTime = new Date(utcTime + (getTimezoneOffset(timezone) * 60000));
+      const offset = targetTime.getTimezoneOffset();
+      const offsetHours = Math.floor(Math.abs(offset) / 60);
+      const offsetMinutes = Math.abs(offset) % 60;
+      const offsetSign = offset <= 0 ? '+' : '-';
+      
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
+    };
+
     const event = {
       summary: params.title,
       description: params.description,
       start: {
-        dateTime: params.startTime.toISOString(),
-        // NO timeZone parameter - let Google Calendar handle it
+        dateTime: formatDateTimeForGoogleCalendar(params.startTime, timezone),
+        timeZone: timezone,
       },
       end: {
-        dateTime: params.endTime.toISOString(),
-        // NO timeZone parameter - let Google Calendar handle it
+        dateTime: formatDateTimeForGoogleCalendar(params.endTime, timezone),
+        timeZone: timezone,
       },
       attendees: [
         { email: params.attendeeEmail }
