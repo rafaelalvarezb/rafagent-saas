@@ -488,6 +488,47 @@ async function analyzeProspectResponse(user: any, prospect: any): Promise<boolea
   const classification = await classifyResponse(cleanedBody);
   console.log(`AI Classification: ${classification.category}`);
 
+  // CRITICAL FIX: Validate extracted preferences to avoid email header contamination
+  // If the AI extracted preferences that match current time/day, they're likely from email metadata
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentDay = now.getDay(); // 0=Sunday, 4=Thursday, etc.
+  
+  let validatedDays = classification.suggestedDays;
+  let validatedTime = classification.suggestedTime;
+  
+  // Check if extracted time matches current time (within 5 minutes)
+  if (classification.suggestedTime) {
+    const [extractedHour, extractedMinute] = classification.suggestedTime.split(':').map(Number);
+    const timeDiff = Math.abs((extractedHour * 60 + extractedMinute) - (currentHour * 60 + currentMinute));
+    
+    if (timeDiff < 10) {
+      console.log(`⚠️ Discarding suggested time ${classification.suggestedTime} - matches current time (likely from email timestamp)`);
+      validatedTime = undefined;
+    }
+  }
+  
+  // Check if extracted day matches current day
+  const dayMap: Record<string, number> = {
+    'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3,
+    'thursday': 4, 'friday': 5, 'saturday': 6
+  };
+  
+  if (classification.suggestedDays && classification.suggestedDays.length > 0) {
+    const extractedDayNumber = dayMap[classification.suggestedDays[0].toLowerCase()];
+    
+    if (extractedDayNumber === currentDay && validatedTime === undefined) {
+      console.log(`⚠️ Discarding suggested day ${classification.suggestedDays[0]} - matches current day with no explicit time (likely from email metadata)`);
+      validatedDays = undefined;
+    }
+  }
+  
+  // If we discarded both time and day, log it clearly
+  if (classification.suggestedDays && !validatedDays) {
+    console.log(`✅ Treating as NO PREFERENCES (email metadata was discarded)`);
+  }
+
   let newStatus = '';
   let isInterested = false;
   
@@ -531,8 +572,8 @@ async function analyzeProspectResponse(user: any, prospect: any): Promise<boolea
 
   await storage.updateProspect(prospect.id, {
     status: newStatus,
-    suggestedDays: classification.suggestedDays?.join(', '),
-    suggestedTime: classification.suggestedTime,
+    suggestedDays: validatedDays?.join(', '),
+    suggestedTime: validatedTime,
     suggestedTimezone: classification.suggestedTimezone,
     suggestedWeek: classification.suggestedWeek,
     repliedAt: new Date() // Track when prospect replied
