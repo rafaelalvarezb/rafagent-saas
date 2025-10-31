@@ -1118,7 +1118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const activeUserIds = new Set<string>();
       for (const user of allUsers) {
         try {
-          const prospects = await storage.getProspects(user.id);
+          const prospects = await storage.getProspectsByUser(user.id);
           const hasRecentActivity = prospects.some(prospect => {
             const createdAt = new Date(prospect.createdAt);
             return createdAt >= thirtyDaysAgo;
