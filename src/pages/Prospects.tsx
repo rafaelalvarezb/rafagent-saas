@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { usePolling } from "@/hooks/use-polling";
@@ -81,6 +81,8 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/StatusBadge";
 import { apiCall } from "@/lib/api";
+import { Celebration } from "@/components/Celebration";
+import { subscribeToCelebration } from "@/hooks/use-websocket";
 
 interface Prospect {
   id: string;
@@ -145,6 +147,9 @@ export default function Prospects() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [expandedProspectId, setExpandedProspectId] = useState<string | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationType, setCelebrationType] = useState<"success" | "achievement" | "meeting" | "milestone">("success");
+  const [celebrationMessage, setCelebrationMessage] = useState("");
   const [newProspect, setNewProspect] = useState({
     contactName: "",
     contactEmail: "",
@@ -182,6 +187,40 @@ export default function Prospects() {
   
   // Fallback polling for updates (in case WebSocket fails)
   usePolling();
+
+  // Subscribe to celebration events from WebSocket
+  useEffect(() => {
+    const unsubscribe = subscribeToCelebration((celebrationState) => {
+      if (celebrationState.show) {
+        setCelebrationType(celebrationState.type);
+        setCelebrationMessage(celebrationState.message);
+        setShowCelebration(true);
+      } else {
+        setShowCelebration(false);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // Detect when prospect status changes to "Meeting Scheduled"
+  const previousProspects = useRef<Prospect[]>([]);
+  useEffect(() => {
+    if (prospects.length > 0 && previousProspects.current.length > 0) {
+      // Check if any prospect status changed to "Meeting Scheduled"
+      prospects.forEach((prospect) => {
+        const previousProspect = previousProspects.current.find(p => p.id === prospect.id);
+        if (previousProspect && 
+            !previousProspect.status?.includes('Meeting Scheduled') && 
+            prospect.status?.includes('Meeting Scheduled')) {
+          // Meeting was just scheduled!
+          setCelebrationType("meeting");
+          setCelebrationMessage("¡Reunión agendada!");
+          setShowCelebration(true);
+        }
+      });
+    }
+    previousProspects.current = prospects;
+  }, [prospects]);
 
   // Fetch prospects (no more polling, updates come via WebSocket)
   const { data: prospects = [], isLoading } = useQuery<Prospect[]>({
@@ -230,6 +269,10 @@ export default function Prospects() {
         description: "New prospect has been added successfully.",
         variant: "success" as any,
       });
+      // Show celebration
+      setCelebrationType("success");
+      setCelebrationMessage("¡Prospecto agregado!");
+      setShowCelebration(true);
     },
     onError: (error: Error) => {
       toast({
@@ -1656,6 +1699,15 @@ export default function Prospects() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Celebration Component */}
+      <Celebration
+        type={celebrationType}
+        message={celebrationMessage}
+        show={showCelebration}
+        onComplete={() => setShowCelebration(false)}
+        duration={2000}
+      />
     </div>
   );
 }

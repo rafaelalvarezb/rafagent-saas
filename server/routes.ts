@@ -95,6 +95,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If new user, create default templates and config
       if (isNewUser) {
         try {
+          // Try to detect timezone from request headers (browser sends it)
+          // Note: We'll detect it on frontend and send via separate API call after login
+          // For now, use a default and let frontend update it
           await createDefaultTemplates(user.id);
           await createDefaultUserConfig(user.id);
           console.log(`Setup completed for new user: ${user.email}`);
@@ -528,6 +531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint to set user's timezone (called from frontend after login)
   app.post("/api/user/timezone", requireAuth, async (req, res) => {
     try {
       const userId = getCurrentUserId(req)!;
@@ -543,17 +547,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid timezone" });
       }
       
-      // Update user timezone
-      await storage.updateUser(userId, { timezone });
-      
-      // Also update user config timezone
+      // Update user config with detected timezone
+      const config = await storage.getUserConfig(userId);
+      if (config) {
       await storage.updateUserConfig(userId, { timezone });
+        console.log(`✅ Updated timezone for user ${userId} to ${timezone}`);
+      } else {
+        // Create config with detected timezone
+        await storage.createUserConfig({ userId, timezone });
+        console.log(`✅ Created config for user ${userId} with timezone ${timezone}`);
+      }
       
       res.json({ success: true, timezone });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error setting user timezone:', error);
       res.status(500).json({ error: error.message });
     }
   });
+
 
   // ===== ACTIVITY LOGS =====
   app.get("/api/activities", requireAuth, async (req, res) => {
