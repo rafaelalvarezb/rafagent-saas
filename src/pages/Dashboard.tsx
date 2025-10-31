@@ -1,5 +1,7 @@
 import { DashboardStats } from "@/components/DashboardStats";
 import { EngineStatusCard } from "@/components/EngineStatusCard";
+import { BadgeSystem } from "@/components/BadgeSystem";
+import { Celebration } from "@/components/Celebration";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +10,7 @@ import { ExternalLink, UserPlus, Mail, Calendar, BarChart3, Settings, Play, Eye,
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { apiCall } from "@/lib/api";
+import { useState } from "react";
 
 interface Prospect {
   id: string;
@@ -22,6 +25,8 @@ interface Prospect {
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationType, setCelebrationType] = useState<"success" | "achievement" | "meeting" | "milestone">("success");
 
   // Fetch real prospects
   const { data: prospects = [] } = useQuery<Prospect[]>({
@@ -29,6 +34,16 @@ export default function Dashboard() {
     queryFn: async () => {
       const response = await apiCall("/prospects");
       if (!response.ok) throw new Error("Failed to fetch prospects");
+      return response.json();
+    },
+  });
+
+  // Fetch analytics for badges
+  const { data: analytics } = useQuery({
+    queryKey: ["analytics"],
+    queryFn: async () => {
+      const response = await apiCall("/analytics");
+      if (!response.ok) throw new Error("Failed to fetch analytics");
       return response.json();
     },
   });
@@ -66,6 +81,80 @@ export default function Dashboard() {
       {/* Engine Status Card */}
       <EngineStatusCard />
 
+      {/* Badge System */}
+      <BadgeSystem analytics={analytics} />
+
+      {/* Test Celebration Button (temporal para pruebas) */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card className="border-dashed border-2 border-primary/50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold mb-1">🧪 Test Celebration Component</h3>
+                <p className="text-sm text-muted-foreground">
+                  Click para probar el componente Celebration
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setCelebrationType("success");
+                    setShowCelebration(true);
+                  }}
+                >
+                  Success
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setCelebrationType("achievement");
+                    setShowCelebration(true);
+                  }}
+                >
+                  Achievement
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setCelebrationType("meeting");
+                    setShowCelebration(true);
+                  }}
+                >
+                  Meeting
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setCelebrationType("milestone");
+                    setShowCelebration(true);
+                  }}
+                >
+                  Milestone
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Celebration Component */}
+      <Celebration
+        type={celebrationType}
+        message={
+          celebrationType === "success" ? "¡Operación exitosa!" :
+          celebrationType === "achievement" ? "¡Logro desbloqueado!" :
+          celebrationType === "meeting" ? "¡Reunión agendada!" :
+          "¡Hito alcanzado!"
+        }
+        show={showCelebration}
+        onComplete={() => setShowCelebration(false)}
+      />
+
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -90,7 +179,7 @@ export default function Dashboard() {
               </Card>
             ) : (
               recentProspects.map((prospect) => (
-                <Card key={prospect.id} className="hover:shadow-md transition-shadow">
+                <Card key={prospect.id} className="hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div>
@@ -147,7 +236,7 @@ export default function Dashboard() {
           <div className="grid gap-3">
             <Button 
               variant="outline" 
-              className="h-auto p-4 justify-start hover:bg-primary/5 hover:border-primary/20 transition-all"
+              className="h-auto p-4 justify-start hover:bg-primary/5 hover:border-primary/20 hover:scale-[1.02] hover:shadow-md transition-all duration-200"
               onClick={() => setLocation('/prospects?add=true')}
             >
               <div className="flex items-center gap-3">
@@ -163,7 +252,7 @@ export default function Dashboard() {
 
             <Button 
               variant="outline" 
-              className="h-auto p-4 justify-start hover:bg-primary/5 hover:border-primary/20 transition-all"
+              className="h-auto p-4 justify-start hover:bg-primary/5 hover:border-primary/20 hover:scale-[1.02] hover:shadow-md transition-all duration-200"
               onClick={() => setLocation('/prospects')}
             >
               <div className="flex items-center gap-3">
@@ -179,7 +268,7 @@ export default function Dashboard() {
 
             <Button 
               variant="outline" 
-              className="h-auto p-4 justify-start hover:bg-primary/5 hover:border-primary/20 transition-all"
+              className="h-auto p-4 justify-start hover:bg-primary/5 hover:border-primary/20 hover:scale-[1.02] hover:shadow-md transition-all duration-200"
               onClick={() => setLocation('/templates')}
             >
               <div className="flex items-center gap-3">
@@ -195,7 +284,7 @@ export default function Dashboard() {
 
             <Button 
               variant="outline" 
-              className="h-auto p-4 justify-start hover:bg-primary/5 hover:border-primary/20 transition-all"
+              className="h-auto p-4 justify-start hover:bg-primary/5 hover:border-primary/20 hover:scale-[1.02] hover:shadow-md transition-all duration-200"
               onClick={() => setLocation('/configuration')}
             >
               <div className="flex items-center gap-3">

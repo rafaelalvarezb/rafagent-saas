@@ -75,6 +75,30 @@ export function useAuth() {
     },
     retry: 1,
     staleTime: 5 * 60 * 1000, // Consider fresh for 5 minutes
+    onSuccess: async (data) => {
+      // Auto-detect and set timezone when user successfully authenticates
+      if (data.authenticated && data.user) {
+        try {
+          // Detect timezone from browser
+          const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          
+          // Only update if different from current timezone
+          if (detectedTimezone && detectedTimezone !== data.user.timezone) {
+            // Set timezone in background (don't await, fire and forget)
+            apiCall('/user/timezone', {
+              method: 'POST',
+              body: JSON.stringify({ timezone: detectedTimezone })
+            }).catch(err => {
+              // Silently fail - user can set it manually
+              console.log('Auto timezone detection failed (user can set manually):', err);
+            });
+          }
+        } catch (err) {
+          // Silently fail - user can set it manually in Configuration
+          console.log('Could not auto-detect timezone (user can set manually):', err);
+        }
+      }
+    }
   });
 
   const login = () => {

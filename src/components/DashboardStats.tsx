@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Send, Eye, MessageCircle, Calendar, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiCall } from "@/lib/api";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
 
 interface StatCardProps {
   title: string;
@@ -20,7 +21,11 @@ function StatCard({ title, value, icon, color }: StatCardProps) {
       </CardHeader>
       <CardContent>
         <div className="text-3xl font-bold" data-testid={`text-stat-value-${title.toLowerCase().replace(/\s+/g, '-')}`}>
-          {value}
+          <AnimatedNumber 
+            value={parseInt(value) || 0} 
+            duration={800}
+            className="inline-block"
+          />
         </div>
       </CardContent>
     </Card>

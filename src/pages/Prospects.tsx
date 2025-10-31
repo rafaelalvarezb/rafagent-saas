@@ -228,6 +228,7 @@ export default function Prospects() {
       toast({
         title: "Prospect Added",
         description: "New prospect has been added successfully.",
+        variant: "success" as any,
       });
     },
     onError: (error: Error) => {

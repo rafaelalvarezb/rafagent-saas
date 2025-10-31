@@ -97,6 +97,7 @@ export default function Configuration() {
       toast({
         title: "Configuration Updated",
         description: "Your settings have been saved successfully.",
+        variant: "success" as any,
       });
     },
     onError: (error: Error) => {

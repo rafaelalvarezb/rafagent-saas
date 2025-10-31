@@ -88,7 +88,7 @@ export default function TimezoneSelector({ currentTimezone, onTimezoneChange }: 
 
   return (
     <div className="relative">
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-foreground mb-2 dark:text-foreground">
         Active Timezone
       </label>
       
@@ -96,15 +96,15 @@ export default function TimezoneSelector({ currentTimezone, onTimezoneChange }: 
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-3 py-2 text-left bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 text-left bg-background border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary dark:bg-muted dark:border-border dark:text-foreground transition-colors"
         >
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium">{currentInfo?.name || selectedTimezone}</div>
-              <div className="text-sm text-gray-500">{currentInfo?.offset || ''}</div>
+              <div className="font-medium text-foreground dark:text-foreground">{currentInfo?.name || selectedTimezone}</div>
+              <div className="text-sm text-muted-foreground dark:text-muted-foreground">{currentInfo?.offset || ''}</div>
             </div>
             <svg
-              className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              className={`w-5 h-5 text-muted-foreground dark:text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -115,41 +115,43 @@ export default function TimezoneSelector({ currentTimezone, onTimezoneChange }: 
         </button>
 
         {isOpen && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-80 overflow-auto">
+          <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-80 overflow-auto dark:bg-muted dark:border-border">
             {/* Search input */}
-            <div className="p-3 border-b border-gray-200">
+            <div className="p-3 border-b border-border dark:border-border">
               <input
                 type="text"
                 placeholder="Search timezones..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground dark:bg-muted dark:text-foreground dark:border-border"
               />
             </div>
 
             {/* Timezone options grouped by region */}
             {Object.keys(filteredTimezones).map(region => (
               <div key={region}>
-                <div className="px-3 py-2 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground bg-muted border-b border-border dark:bg-background dark:text-muted-foreground dark:border-border">
                   {region}
                 </div>
                 {filteredTimezones[region].map((timezone) => (
                   <button
                     key={timezone.id}
                     onClick={() => handleTimezoneSelect(timezone.id)}
-                    className={`w-full px-3 py-2 text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50 ${
-                      selectedTimezone === timezone.id ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+                    className={`w-full px-3 py-2 text-left hover:bg-muted focus:outline-none focus:bg-muted transition-colors dark:hover:bg-background dark:focus:bg-background ${
+                      selectedTimezone === timezone.id 
+                        ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary' 
+                        : 'text-foreground dark:text-foreground'
                     }`}
                   >
                     <div className="font-medium">{timezone.name}</div>
-                    <div className="text-sm text-gray-500">{timezone.offset}</div>
+                    <div className="text-sm text-muted-foreground dark:text-muted-foreground">{timezone.offset}</div>
                   </button>
                 ))}
               </div>
             ))}
 
             {Object.keys(filteredTimezones).length === 0 && (
-              <div className="px-3 py-2 text-gray-500 text-center">
+              <div className="px-3 py-2 text-muted-foreground dark:text-muted-foreground text-center">
                 No timezones found
               </div>
             )}
@@ -157,7 +159,7 @@ export default function TimezoneSelector({ currentTimezone, onTimezoneChange }: 
         )}
       </div>
 
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-1 text-sm text-muted-foreground dark:text-muted-foreground">
         Times below are set in this timezone
       </p>
     </div>
