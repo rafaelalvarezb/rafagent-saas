@@ -70,8 +70,8 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Default to 3000 if not specified (avoiding macOS AirPlay on 5000)
   const port = parseInt(process.env.PORT || '3000', 10);
-  server.listen(port, "127.0.0.1", () => {
-    log(`🚀 Server running at http://localhost:${port}`);
+  server.listen(port, "0.0.0.0", () => {
+    log(`🚀 Server running at http://0.0.0.0:${port}`);
     
     // Start the agent scheduler
     startAgentScheduler();
