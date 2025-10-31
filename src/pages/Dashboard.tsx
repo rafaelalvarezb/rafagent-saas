@@ -44,44 +44,6 @@ export default function Dashboard() {
     },
   });
 
-  const { user } = useAuth();
-  const socketRef = useRef<Socket | null>(null);
-
-  // Initialize WebSocket for meeting celebrations
-  useEffect(() => {
-    if (!user) return;
-
-    // Temporarily disable WebSocket in production
-    if (import.meta.env.PROD) return;
-
-    const wsUrl = 'http://localhost:3000';
-    const socket = io(wsUrl, {
-      withCredentials: true,
-      reconnection: true,
-      transports: ['websocket', 'polling'],
-    });
-
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      socket.emit('join', user.id);
-    });
-
-    // Listen for meeting scheduled events
-    socket.on('meeting:scheduled', (data: any) => {
-      setCelebrationType("meeting");
-      setCelebrationMessage(`¡Reunión agendada con ${data.contactEmail || 'prospect'}! 🎉`);
-      setShowCelebration(true);
-    });
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    };
-  }, [user]);
-
   // Get recent prospects (last 5 with activity)
   const recentProspects = prospects
     .filter(p => p.touchpointsSent && p.touchpointsSent > 0)
