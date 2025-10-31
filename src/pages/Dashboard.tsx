@@ -10,7 +10,10 @@ import { ExternalLink, UserPlus, Mail, Calendar, BarChart3, Settings, Play, Eye,
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { apiCall } from "@/lib/api";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useWebSocket } from "@/hooks/use-websocket";
+import { io, Socket } from "socket.io-client";
+import { useAuth } from "@/hooks/use-auth";
 
 interface Prospect {
   id: string;
@@ -27,6 +30,7 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationType, setCelebrationType] = useState<"success" | "achievement" | "meeting" | "milestone">("success");
+  const [celebrationMessage, setCelebrationMessage] = useState("");
 
   // Fetch real prospects
   const { data: prospects = [] } = useQuery<Prospect[]>({
@@ -47,6 +51,44 @@ export default function Dashboard() {
       return response.json();
     },
   });
+
+  const { user } = useAuth();
+  const socketRef = useRef<Socket | null>(null);
+
+  // Initialize WebSocket for meeting celebrations
+  useEffect(() => {
+    if (!user) return;
+
+    // Temporarily disable WebSocket in production
+    if (import.meta.env.PROD) return;
+
+    const wsUrl = 'http://localhost:3000';
+    const socket = io(wsUrl, {
+      withCredentials: true,
+      reconnection: true,
+      transports: ['websocket', 'polling'],
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      socket.emit('join', user.id);
+    });
+
+    // Listen for meeting scheduled events
+    socket.on('meeting:scheduled', (data: any) => {
+      setCelebrationType("meeting");
+      setCelebrationMessage(`¡Reunión agendada con ${data.contactEmail || 'prospect'}! 🎉`);
+      setShowCelebration(true);
+    });
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [user]);
 
   // Get recent prospects (last 5 with activity)
   const recentProspects = prospects
@@ -84,73 +126,15 @@ export default function Dashboard() {
       {/* Badge System */}
       <BadgeSystem analytics={analytics} />
 
-      {/* Test Celebration Button (temporal para pruebas) */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="border-dashed border-2 border-primary/50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold mb-1">🧪 Test Celebration Component</h3>
-                <p className="text-sm text-muted-foreground">
-                  Click para probar el componente Celebration
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setCelebrationType("success");
-                    setShowCelebration(true);
-                  }}
-                >
-                  Success
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setCelebrationType("achievement");
-                    setShowCelebration(true);
-                  }}
-                >
-                  Achievement
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setCelebrationType("meeting");
-                    setShowCelebration(true);
-                  }}
-                >
-                  Meeting
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setCelebrationType("milestone");
-                    setShowCelebration(true);
-                  }}
-                >
-                  Milestone
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Celebration Component */}
       <Celebration
         type={celebrationType}
-        message={
+        message={celebrationMessage || (
           celebrationType === "success" ? "¡Operación exitosa!" :
           celebrationType === "achievement" ? "¡Logro desbloqueado!" :
           celebrationType === "meeting" ? "¡Reunión agendada!" :
           "¡Hito alcanzado!"
-        }
+        )}
         show={showCelebration}
         onComplete={() => setShowCelebration(false)}
       />
