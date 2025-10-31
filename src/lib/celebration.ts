@@ -1,4 +1,8 @@
-// Global celebration state (shared across components)
+/**
+ * Global celebration state management
+ * Separated to avoid circular dependencies
+ */
+
 let celebrationState: {
   show: boolean;
   type: "success" | "achievement" | "meeting" | "milestone";
@@ -18,16 +22,19 @@ export function subscribeToCelebration(callback: (state: any) => void) {
   };
 }
 
-export function triggerCelebration(type: "success" | "achievement" | "meeting" | "milestone", message: string) {
+export function triggerCelebration(
+  type: "success" | "achievement" | "meeting" | "milestone",
+  message: string
+) {
   celebrationState.show = true;
   celebrationState.type = type;
   celebrationState.message = message;
-  celebrationState.listeners.forEach(listener => listener({ ...celebrationState }));
-  
+  celebrationState.listeners.forEach((listener) => listener({ ...celebrationState }));
+
   // Auto-hide after duration
   setTimeout(() => {
     celebrationState.show = false;
-    celebrationState.listeners.forEach(listener => listener({ ...celebrationState }));
+    celebrationState.listeners.forEach((listener) => listener({ ...celebrationState }));
   }, 2000);
 }
 
