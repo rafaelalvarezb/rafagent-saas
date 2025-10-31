@@ -3,39 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
-
-// Global celebration state (shared across components)
-let celebrationState: {
-  show: boolean;
-  type: "success" | "achievement" | "meeting" | "milestone";
-  message: string;
-  listeners: Set<(state: any) => void>;
-} = {
-  show: false,
-  type: "success",
-  message: "",
-  listeners: new Set(),
-};
-
-export function subscribeToCelebration(callback: (state: any) => void) {
-  celebrationState.listeners.add(callback);
-  return () => {
-    celebrationState.listeners.delete(callback);
-  };
-}
-
-export function triggerCelebration(type: "success" | "achievement" | "meeting" | "milestone", message: string) {
-  celebrationState.show = true;
-  celebrationState.type = type;
-  celebrationState.message = message;
-  celebrationState.listeners.forEach(listener => listener({ ...celebrationState }));
-  
-  // Auto-hide after duration
-  setTimeout(() => {
-    celebrationState.show = false;
-    celebrationState.listeners.forEach(listener => listener({ ...celebrationState }));
-  }, 2000);
-}
+import { triggerCelebration } from '@/lib/celebration';
 
 export function useWebSocket() {
   const socketRef = useRef<Socket | null>(null);
@@ -162,7 +130,7 @@ export function useWebSocket() {
         socketRef.current = null;
       }
     };
-  }, [user, queryClient]);
+  }, [user, queryClient, toast]);
 
   return socketRef.current;
 }

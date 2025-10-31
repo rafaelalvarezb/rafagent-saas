@@ -82,7 +82,7 @@ import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/StatusBadge";
 import { apiCall } from "@/lib/api";
 import { Celebration } from "@/components/Celebration";
-import { subscribeToCelebration } from "@/hooks/use-websocket";
+import { subscribeToCelebration } from "@/lib/celebration";
 
 interface Prospect {
   id: string;
