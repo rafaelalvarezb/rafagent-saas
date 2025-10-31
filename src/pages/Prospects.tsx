@@ -80,7 +80,6 @@ import {
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Celebration } from "@/components/Celebration";
 import { apiCall } from "@/lib/api";
 
 interface Prospect {
@@ -146,9 +145,6 @@ export default function Prospects() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [expandedProspectId, setExpandedProspectId] = useState<string | null>(null);
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [celebrationType, setCelebrationType] = useState<"success" | "achievement" | "meeting" | "milestone">("success");
-  const [celebrationMessage, setCelebrationMessage] = useState("");
   const [newProspect, setNewProspect] = useState({
     contactName: "",
     contactEmail: "",
@@ -234,10 +230,6 @@ export default function Prospects() {
         description: "New prospect has been added successfully.",
         variant: "success" as any,
       });
-      // Show celebration
-      setCelebrationType("success");
-      setCelebrationMessage("¡Prospecto agregado exitosamente! 🎉");
-      setShowCelebration(true);
     },
     onError: (error: Error) => {
       toast({
@@ -1664,14 +1656,6 @@ export default function Prospects() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Celebration Component */}
-      <Celebration
-        type={celebrationType}
-        message={celebrationMessage}
-        show={showCelebration}
-        onComplete={() => setShowCelebration(false)}
-      />
     </div>
   );
 }

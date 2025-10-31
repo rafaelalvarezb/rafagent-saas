@@ -2,8 +2,6 @@ import { Trophy, Target, Zap, Calendar, Mail, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Celebration } from "@/components/Celebration";
-import { useState, useEffect, useRef } from "react";
 
 interface Achievement {
   id: string;
@@ -28,9 +26,6 @@ interface BadgeSystemProps {
  * Badge/Achievement system component
  */
 export function BadgeSystem({ analytics }: BadgeSystemProps) {
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [celebrationMessage, setCelebrationMessage] = useState("");
-  const previousUnlockedRef = useRef<Set<string>>(new Set());
 
   const achievements: Achievement[] = [
     {
@@ -89,26 +84,8 @@ export function BadgeSystem({ analytics }: BadgeSystemProps) {
 
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
 
-  // Detect newly unlocked achievements
-  useEffect(() => {
-    if (!analytics) return;
-    
-    const newlyUnlocked = achievements.filter(
-      (a) => a.unlocked && !previousUnlockedRef.current.has(a.id)
-    );
-
-    if (newlyUnlocked.length > 0) {
-      const firstNewAchievement = newlyUnlocked[0];
-      previousUnlockedRef.current.add(firstNewAchievement.id);
-      setCelebrationMessage(`¡Logro desbloqueado: ${firstNewAchievement.name}! 🏆`);
-      setShowCelebration(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analytics]);
-
   return (
-    <>
-      <Card>
+    <Card>
         <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -179,17 +156,8 @@ export function BadgeSystem({ analytics }: BadgeSystemProps) {
             </div>
           ))}
         </div>
-        </CardContent>
-      </Card>
-
-      {/* Celebration Component */}
-      <Celebration
-        type="achievement"
-        message={celebrationMessage}
-        show={showCelebration}
-        onComplete={() => setShowCelebration(false)}
-      />
-    </>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -1,7 +1,6 @@
 import { DashboardStats } from "@/components/DashboardStats";
 import { EngineStatusCard } from "@/components/EngineStatusCard";
 import { BadgeSystem } from "@/components/BadgeSystem";
-import { Celebration } from "@/components/Celebration";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,10 +9,6 @@ import { ExternalLink, UserPlus, Mail, Calendar, BarChart3, Settings, Play, Eye,
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { apiCall } from "@/lib/api";
-import { useState, useEffect, useRef } from "react";
-import { useWebSocket } from "@/hooks/use-websocket";
-import { io, Socket } from "socket.io-client";
-import { useAuth } from "@/hooks/use-auth";
 
 interface Prospect {
   id: string;
@@ -28,9 +23,6 @@ interface Prospect {
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [celebrationType, setCelebrationType] = useState<"success" | "achievement" | "meeting" | "milestone">("success");
-  const [celebrationMessage, setCelebrationMessage] = useState("");
 
   // Fetch real prospects
   const { data: prospects = [] } = useQuery<Prospect[]>({
@@ -125,19 +117,6 @@ export default function Dashboard() {
 
       {/* Badge System */}
       <BadgeSystem analytics={analytics} />
-
-      {/* Celebration Component */}
-      <Celebration
-        type={celebrationType}
-        message={celebrationMessage || (
-          celebrationType === "success" ? "¡Operación exitosa!" :
-          celebrationType === "achievement" ? "¡Logro desbloqueado!" :
-          celebrationType === "meeting" ? "¡Reunión agendada!" :
-          "¡Hito alcanzado!"
-        )}
-        show={showCelebration}
-        onComplete={() => setShowCelebration(false)}
-      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
