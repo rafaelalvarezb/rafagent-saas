@@ -11,7 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiCall } from "@/lib/api";
 import TimezoneSelector from "@/components/TimezoneSelector";
-import { Celebration } from "@/components/Celebration";
 
 interface UserConfig {
   id: string;
@@ -42,7 +41,6 @@ export default function Configuration() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [showCelebration, setShowCelebration] = useState(false);
 
   const [config, setConfig] = useState<Partial<UserConfig>>({
     customName: '',
@@ -101,8 +99,6 @@ export default function Configuration() {
         description: "Your settings have been saved successfully.",
         variant: "success" as any,
       });
-      // Show celebration
-      setShowCelebration(true);
     },
     onError: (error: Error) => {
       toast({
@@ -333,15 +329,6 @@ export default function Configuration() {
           Save Changes
         </Button>
       </div>
-
-      {/* Celebration */}
-      <Celebration
-        type="success"
-        message="¡Configuración guardada!"
-        show={showCelebration}
-        onComplete={() => setShowCelebration(false)}
-        duration={2000}
-      />
     </div>
   );
 }

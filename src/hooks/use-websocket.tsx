@@ -3,7 +3,6 @@ import { io, Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
-import { triggerCelebration } from '@/lib/celebration';
 
 export function useWebSocket() {
   const socketRef = useRef<Socket | null>(null);
@@ -67,6 +66,21 @@ export function useWebSocket() {
       console.error('🔄 WebSocket reconnection failed after all attempts');
     });
 
+    // Listen for prospect status changes
+    socket.on('prospect:status', (data: { prospectId: string; status: string }) => {
+      console.log('📡 Prospect status changed:', data);
+      console.log('🔄 Invalidating and refetching prospects...');
+      
+      // Show toast notification
+      toast({
+        title: "Status Updated",
+        description: `Prospect status changed to: ${data.status}`,
+      });
+      
+      // Invalidate and refetch prospects query to get fresh data
+      queryClient.invalidateQueries({ queryKey: ['prospects'] });
+      queryClient.refetchQueries({ queryKey: ['prospects'] });
+    });
 
     // Listen for prospect updates
     socket.on('prospect:update', (prospect: any) => {
@@ -86,32 +100,7 @@ export function useWebSocket() {
       toast({
         title: "Meeting Scheduled! 🎉",
         description: `Meeting scheduled with ${data.contactEmail || 'prospect'}`,
-        variant: "success" as any,
       });
-      
-      // Trigger celebration
-      triggerCelebration("meeting", "¡Reunión agendada!");
-      
-      // Invalidate and refetch prospects query to get fresh data
-      queryClient.invalidateQueries({ queryKey: ['prospects'] });
-      queryClient.refetchQueries({ queryKey: ['prospects'] });
-    });
-    
-    // Also trigger celebration on prospect status change if it's a meeting scheduled
-    socket.on('prospect:status', (data: { prospectId: string; status: string }) => {
-      console.log('📡 Prospect status changed:', data);
-      console.log('🔄 Invalidating and refetching prospects...');
-      
-      // Show toast notification
-      toast({
-        title: "Status Updated",
-        description: `Prospect status changed to: ${data.status}`,
-      });
-      
-      // Trigger celebration if meeting was scheduled
-      if (data.status.includes('Meeting Scheduled')) {
-        triggerCelebration("meeting", "¡Reunión agendada!");
-      }
       
       // Invalidate and refetch prospects query to get fresh data
       queryClient.invalidateQueries({ queryKey: ['prospects'] });
@@ -130,7 +119,7 @@ export function useWebSocket() {
         socketRef.current = null;
       }
     };
-  }, [user, queryClient, toast]);
+  }, [user, queryClient]);
 
   return socketRef.current;
 }
