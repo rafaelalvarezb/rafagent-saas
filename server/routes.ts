@@ -1087,39 +1087,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== ENGINE STATUS ENDPOINTS =====
-  app.get("/api/engine/status", async (req, res) => {
+  app.get("/api/engine/status", requireAuth, async (req, res) => {
     try {
-      if (SERVER_CONFIG.IS_HYBRID_MODE) {
-        const response = await redirectToEngine('/api/status');
-        const result = await response.json();
-        return res.json(result);
+      // Get current user to check if admin
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
       }
       
-      // Fallback for development mode
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      // Only admin can see engine status (admin email: rafaelalvrzb@gmail.com)
+      const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'rafaelalvrzb@gmail.com';
+      if (user.email !== ADMIN_EMAIL) {
+        return res.status(403).json({ error: 'Forbidden: Admin access required' });
+      }
+
+      // Get engine status with real data
+      const uptimeSeconds = Math.floor(process.uptime());
+      const allUsers = await storage.getAllUsers();
+      const totalUsers = allUsers.length;
+      
+      // Count active users (users with prospects created in last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const activeUserIds = new Set<string>();
+      for (const user of allUsers) {
+        try {
+          const prospects = await storage.getProspects(user.id);
+          const hasRecentActivity = prospects.some(prospect => {
+            const createdAt = new Date(prospect.createdAt);
+            return createdAt >= thirtyDaysAgo;
+          });
+          if (hasRecentActivity) {
+            activeUserIds.add(user.id);
+          }
+        } catch (err) {
+          // If error, skip this user
+          console.error(`Error getting prospects for user ${user.id}:`, err);
+        }
+      }
+      
+      const activeUsers = activeUserIds.size || totalUsers; // Fallback to total if no recent activity
+
       res.json({
-        status: 'development',
-        message: 'Running in development mode - engine not available'
+        status: 'running',
+        activeUsers: activeUsers,
+        totalUsers: totalUsers,
+        uptime: uptimeSeconds,
+        timestamp: new Date().toISOString()
       });
     } catch (error: any) {
+      console.error('Error getting engine status:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.get("/api/engine/health", async (req, res) => {
+  app.get("/api/engine/health", requireAuth, async (req, res) => {
     try {
-      if (SERVER_CONFIG.IS_HYBRID_MODE) {
-        const response = await redirectToEngine('/health');
-        const result = await response.json();
-        return res.json(result);
+      // Get current user to check if admin
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
       }
       
-      // Fallback for development mode
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      // Only admin can see engine health
+      const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'rafaelalvrzb@gmail.com';
+      if (user.email !== ADMIN_EMAIL) {
+        return res.status(403).json({ error: 'Forbidden: Admin access required' });
+      }
+
       res.json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        service: 'rafagent-frontend-dev'
+        service: 'rafagent-engine'
       });
     } catch (error: any) {
+      console.error('Error getting engine health:', error);
       res.status(500).json({ error: error.message });
     }
   });

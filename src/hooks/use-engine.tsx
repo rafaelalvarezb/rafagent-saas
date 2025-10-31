@@ -26,7 +26,20 @@ export function useEngineStatus() {
       setError(null);
       
       // Use frontend server endpoint that redirects to engine
-      const response = await fetch('/api/engine/status');
+      const response = await fetch('/api/engine/status', {
+        credentials: 'include', // Important for cookies/JWT
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('rafagent_token') || ''}`
+        }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('Forbidden: Admin access required');
+        }
+        throw new Error(`Failed to fetch engine status: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       
       setStatus(data);

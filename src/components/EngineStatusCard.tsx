@@ -29,7 +29,10 @@ export function EngineStatusCard() {
     }
   };
 
-  const formatUptime = (seconds: number) => {
+  const formatUptime = (seconds: number | undefined) => {
+    if (!seconds || isNaN(seconds)) {
+      return '0h 0m';
+    }
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${hours}h ${minutes}m`;
@@ -90,8 +93,8 @@ export function EngineStatusCard() {
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Status</span>
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${getStatusColor(status.status)}`}></div>
-                <span className="text-sm capitalize">{status.status}</span>
+                <div className={`w-2 h-2 rounded-full ${getStatusColor(status.status || 'running')}`}></div>
+                <span className="text-sm capitalize">{status.status || 'running'}</span>
               </div>
             </div>
             
@@ -99,13 +102,13 @@ export function EngineStatusCard() {
               <span className="text-sm font-medium">Active Users</span>
               <div className="flex items-center gap-1">
                 <Users className="h-4 w-4 text-blue-500" />
-                <span className="text-sm">{status.activeUsers}</span>
+                <span className="text-sm">{status.activeUsers || 0}</span>
               </div>
             </div>
             
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Total Users</span>
-              <span className="text-sm">{status.totalUsers}</span>
+              <span className="text-sm">{status.totalUsers || 0}</span>
             </div>
             
             <div className="flex items-center justify-between">
@@ -118,7 +121,7 @@ export function EngineStatusCard() {
             
             <div className="pt-2 border-t">
               <span className="text-xs text-gray-500">
-                Last updated: {new Date(status.timestamp).toLocaleTimeString()}
+                Last updated: {status.timestamp ? new Date(status.timestamp).toLocaleTimeString() : 'Never'}
               </span>
             </div>
           </div>

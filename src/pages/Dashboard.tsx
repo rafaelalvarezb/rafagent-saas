@@ -2,6 +2,7 @@ import { DashboardStats } from "@/components/DashboardStats";
 import { EngineStatusCard } from "@/components/EngineStatusCard";
 import { BadgeSystem } from "@/components/BadgeSystem";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,11 @@ interface Prospect {
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
+  
+  // Only show Engine Status Card to admin (rafaelalvrzb@gmail.com)
+  const ADMIN_EMAIL = 'rafaelalvrzb@gmail.com';
+  const isAdmin = user?.email === ADMIN_EMAIL;
 
   // Fetch real prospects
   const { data: prospects = [] } = useQuery<Prospect[]>({
@@ -74,8 +80,8 @@ export default function Dashboard() {
 
       <DashboardStats />
 
-      {/* Engine Status Card */}
-      <EngineStatusCard />
+      {/* Engine Status Card - Only for admin */}
+      {isAdmin && <EngineStatusCard />}
 
       {/* Badge System */}
       <BadgeSystem analytics={analytics} />
