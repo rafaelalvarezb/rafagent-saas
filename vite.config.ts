@@ -28,6 +28,13 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-utils': ['clsx', 'tailwind-merge'],
+        },
+      },
+    },
   },
   server: {
     fs: {
