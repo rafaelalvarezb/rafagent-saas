@@ -79,6 +79,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { StatusBadge } from "@/components/StatusBadge";
 import { apiCall } from "@/lib/api";
 
@@ -359,9 +360,45 @@ export default function Prospects() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["prospects"] });
       setIsExecutingAgent(false);
+      
+      // Check if outside working hours
+      if (data.outsideWorkingHours) {
+        toast({
+          title: "Agent Execution Blocked",
+          description: data.message || "Agent execution is outside your configured working hours.",
+          variant: "destructive",
+          action: (
+            <ToastAction 
+              altText="Go to Configuration" 
+              onClick={() => setLocation("/configuration")}
+            >
+              Modify Working Hours
+            </ToastAction>
+          ),
+        });
+        return;
+      }
+      
+      // Check if no new responses detected
+      if (data.noNewResponses) {
+        toast({
+          title: "No New Responses",
+          description: data.message || "No new responses detected for these prospects in your email inbox. Please wait a few seconds and try again.",
+          variant: "default",
+        });
+        return;
+      }
+      
+      // Success message with details
+      const hasAction = data.emailsSent > 0 || data.responsesAnalyzed > 0 || data.meetingsScheduled > 0;
+      const description = hasAction
+        ? `Processed ${data.processed} prospects. ${data.emailsSent > 0 ? `Sent ${data.emailsSent} email(s). ` : ''}${data.responsesAnalyzed > 0 ? `Analyzed ${data.responsesAnalyzed} response(s). ` : ''}${data.meetingsScheduled > 0 ? `Scheduled ${data.meetingsScheduled} meeting(s).` : ''}`
+        : "Processed prospects successfully. No actions were needed.";
+      
       toast({
         title: "Agent Executed",
-        description: "Processed prospects successfully.",
+        description: description,
+        variant: hasAction ? "success" as any : "default",
       });
     },
     onError: (error: Error) => {
@@ -1283,6 +1320,38 @@ export default function Prospects() {
                     setEditingProspect({ ...editingProspect, industry: e.target.value })
                   }
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Informative message for prospects waiting for working hours */}
+          {editingProspect && (
+            editingProspect.status === 'waiting_working_hours' || 
+            editingProspect.status === 'WAITING FOR WORKING HOURS' ||
+            editingProspect.status?.includes('WAITING FOR WORKING HOURS')
+          ) && (
+            <div className="col-span-2 mt-4 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Initial email is waiting for working hours
+                  </p>
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    The initial email hasn't been sent yet because it's outside your configured working hours. 
+                    You have two options:
+                  </p>
+                  <ul className="text-sm text-blue-800 dark:text-blue-200 list-disc list-inside space-y-1 ml-2">
+                    <li>
+                      <strong>Send now:</strong> Go to <strong>Configuration</strong> and modify your working hours 
+                      to include the current time, then the email will be sent automatically.
+                    </li>
+                    <li>
+                      <strong>Wait automatically:</strong> The email will be sent automatically tomorrow at the start 
+                      of your working hours (no action needed).
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
           )}
