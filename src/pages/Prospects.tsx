@@ -1262,9 +1262,9 @@ export default function Prospects() {
 
           {editingProspect && (
             <>
-              <div className="grid grid-cols-2 gap-4 py-4">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-6 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-contactName">Contact First Name *</Label>
+                  <Label htmlFor="edit-contactName" className="text-sm font-medium">Contact First Name *</Label>
                   <Input
                     id="edit-contactName"
                     placeholder="John"
@@ -1272,11 +1272,12 @@ export default function Prospects() {
                     onChange={(e) =>
                       setEditingProspect({ ...editingProspect, contactName: e.target.value })
                     }
+                    className="h-10"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-contactEmail">Email *</Label>
+                  <Label htmlFor="edit-contactEmail" className="text-sm font-medium">Email *</Label>
                   <Input
                     id="edit-contactEmail"
                     type="email"
@@ -1285,11 +1286,12 @@ export default function Prospects() {
                     onChange={(e) =>
                       setEditingProspect({ ...editingProspect, contactEmail: e.target.value })
                     }
+                    className="h-10"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-contactTitle">Title</Label>
+                  <Label htmlFor="edit-contactTitle" className="text-sm font-medium">Title</Label>
                   <Input
                     id="edit-contactTitle"
                     placeholder="VP of Sales"
@@ -1297,11 +1299,12 @@ export default function Prospects() {
                     onChange={(e) =>
                       setEditingProspect({ ...editingProspect, contactTitle: e.target.value })
                     }
+                    className="h-10"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-companyName">Company Name</Label>
+                  <Label htmlFor="edit-companyName" className="text-sm font-medium">Company Name</Label>
                   <Input
                     id="edit-companyName"
                     placeholder="Acme Corp"
@@ -1309,11 +1312,12 @@ export default function Prospects() {
                     onChange={(e) =>
                       setEditingProspect({ ...editingProspect, companyName: e.target.value })
                     }
+                    className="h-10"
                   />
                 </div>
 
                 <div className="space-y-2 col-span-2">
-                  <Label htmlFor="edit-industry">Industry</Label>
+                  <Label htmlFor="edit-industry" className="text-sm font-medium">Industry</Label>
                   <Input
                     id="edit-industry"
                     placeholder="SaaS, Technology, Healthcare, etc."
@@ -1321,6 +1325,7 @@ export default function Prospects() {
                     onChange={(e) =>
                       setEditingProspect({ ...editingProspect, industry: e.target.value })
                     }
+                    className="h-10"
                   />
                 </div>
               </div>
@@ -1362,8 +1367,8 @@ export default function Prospects() {
                         </p>
                       </div>
                     </div>
-                  </div>
-                </div>
+              </div>
+            </div>
               )}
             </>
           )}
