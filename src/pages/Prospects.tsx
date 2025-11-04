@@ -1262,79 +1262,11 @@ export default function Prospects() {
 
           {editingProspect && (
             <>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-6 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-contactName" className="text-sm font-medium">Contact First Name *</Label>
-                  <Input
-                    id="edit-contactName"
-                    placeholder="John"
-                    value={editingProspect.contactName}
-                    onChange={(e) =>
-                      setEditingProspect({ ...editingProspect, contactName: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-contactEmail" className="text-sm font-medium">Email *</Label>
-                  <Input
-                    id="edit-contactEmail"
-                    type="email"
-                    placeholder="john@company.com"
-                    value={editingProspect.contactEmail}
-                    onChange={(e) =>
-                      setEditingProspect({ ...editingProspect, contactEmail: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-contactTitle" className="text-sm font-medium">Title</Label>
-                  <Input
-                    id="edit-contactTitle"
-                    placeholder="VP of Sales"
-                    value={editingProspect.contactTitle || ""}
-                    onChange={(e) =>
-                      setEditingProspect({ ...editingProspect, contactTitle: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-companyName" className="text-sm font-medium">Company Name</Label>
-                  <Input
-                    id="edit-companyName"
-                    placeholder="Acme Corp"
-                    value={editingProspect.companyName || ""}
-                    onChange={(e) =>
-                      setEditingProspect({ ...editingProspect, companyName: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2 col-span-2">
-                  <Label htmlFor="edit-industry" className="text-sm font-medium">Industry</Label>
-                  <Input
-                    id="edit-industry"
-                    placeholder="SaaS, Technology, Healthcare, etc."
-                    value={editingProspect.industry || ""}
-                    onChange={(e) =>
-                      setEditingProspect({ ...editingProspect, industry: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                </div>
-              </div>
-
-              {/* Informative message for prospects waiting for working hours */}
+              {/* Informative message for prospects waiting for working hours - Show first */}
               {(editingProspect.status === 'waiting_working_hours' || 
                 editingProspect.status === 'WAITING FOR WORKING HOURS' ||
                 editingProspect.status?.includes('WAITING FOR WORKING HOURS')) && (
-                <div className="col-span-2 mb-4 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
                   <div className="flex items-start gap-3">
                     <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                     <div className="space-y-2 flex-1">
@@ -1367,9 +1299,73 @@ export default function Prospects() {
                         </p>
                       </div>
                     </div>
-              </div>
-            </div>
+                  </div>
+                </div>
               )}
+
+              {/* Form fields - Show below the informative message */}
+              <div className="grid grid-cols-2 gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-contactName">Contact First Name *</Label>
+                  <Input
+                    id="edit-contactName"
+                    placeholder="John"
+                    value={editingProspect.contactName}
+                    onChange={(e) =>
+                      setEditingProspect({ ...editingProspect, contactName: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-contactEmail">Email *</Label>
+                  <Input
+                    id="edit-contactEmail"
+                    type="email"
+                    placeholder="john@company.com"
+                    value={editingProspect.contactEmail}
+                    onChange={(e) =>
+                      setEditingProspect({ ...editingProspect, contactEmail: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-contactTitle">Title</Label>
+                  <Input
+                    id="edit-contactTitle"
+                    placeholder="VP of Sales"
+                    value={editingProspect.contactTitle || ""}
+                    onChange={(e) =>
+                      setEditingProspect({ ...editingProspect, contactTitle: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-companyName">Company Name</Label>
+                  <Input
+                    id="edit-companyName"
+                    placeholder="Acme Corp"
+                    value={editingProspect.companyName || ""}
+                    onChange={(e) =>
+                      setEditingProspect({ ...editingProspect, companyName: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="edit-industry">Industry</Label>
+                  <Input
+                    id="edit-industry"
+                    placeholder="SaaS, Technology, Healthcare, etc."
+                    value={editingProspect.industry || ""}
+                    onChange={(e) =>
+                      setEditingProspect({ ...editingProspect, industry: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
             </>
           )}
 
