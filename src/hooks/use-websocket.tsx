@@ -19,20 +19,18 @@ export function useWebSocket() {
       return;
     }
 
-    // If connection failed after max attempts, don't try again
-    if (connectionFailed) {
-      console.log('⚠️ WebSocket connection failed after multiple attempts - using polling only');
+    // Disable WebSocket in production - Railway has compatibility issues
+    // Using polling as reliable fallback (updates every 3 seconds)
+    if (import.meta.env.PROD) {
+      console.log('⚠️ WebSocket disabled in production - using polling for reliable updates');
       return;
     }
 
-    // Use Railway URL in production, localhost in development
-    const wsUrl = import.meta.env.PROD 
-      ? 'https://rafagent-engine-production.up.railway.app'
-      : 'http://localhost:3000';
+    // Use localhost in development only
+    const wsUrl = 'http://localhost:3000';
     
     console.log('🔌 Attempting to connect to WebSocket:', wsUrl);
     console.log('👤 User ID:', user.id);
-    console.log('🌍 Environment:', import.meta.env.PROD ? 'PRODUCTION' : 'DEVELOPMENT');
 
     // Initialize WebSocket connection
     const socket = io(wsUrl, {
