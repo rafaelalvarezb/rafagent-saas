@@ -23,13 +23,10 @@ export function initializeWebSocket(httpServer: HTTPServer): Server {
     },
     path: '/socket.io/',
     transports: ['polling', 'websocket'], // Try polling first, then upgrade to websocket
-    allowEIO3: true, // Allow Engine.IO v3 for compatibility
     pingTimeout: 60000,
     pingInterval: 25000,
-    upgradeTimeout: 30000,
     maxHttpBufferSize: 1e6,
     serveClient: false,
-    cookie: false,
   });
 
   io.on("connection", (socket) => {

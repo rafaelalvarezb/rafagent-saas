@@ -575,16 +575,42 @@ Todos los bugs críticos han sido corregidos. Los únicos problemas conocidos so
   - `src/hooks/use-auth.tsx` - Captura token de URL, lo guarda en localStorage
   - `src/lib/api.ts` - Envía token en header Authorization
 
+### Sobre WebSocket vs Polling
+
+- **Estado actual:** Usando **POLLING** (actualizaciones cada 3 segundos)
+- **Por qué:** Railway tiene problemas de compatibilidad con WebSocket
+- **Funciona para:** 0-500 usuarios perfectamente
+- **Plan futuro:** Migrar a **Render.com** y habilitar **WebSocket** a los 500 usuarios
+- **Beneficio esperado:** Actualizaciones instantáneas (<100ms vs 3000ms)
+- **Ver:** `ROADMAP_WEBSOCKET_ESCALAMIENTO.md` para plan completo de migración
+- **Archivos relevantes:**
+  - `src/hooks/use-websocket.tsx` - WebSocket deshabilitado en producción
+  - `src/hooks/use-polling.tsx` - Polling habilitado (cada 3 segundos)
+  - `server/services/websocket.ts` - Configuración de WebSocket (listo para cuando migremos)
+
 ---
 
 ## 🎯 PRÓXIMOS PASOS SUGERIDOS
 
-1. **Mejoras del agente mientras se consiguen los primeros 100 usuarios** (enfoque lean)
-2. **Agregar validación de formularios** (mejora UX)
-3. **Optimizar bundle size** (mejora performance)
-4. **Agregar retry logic para Google APIs** (mejora confiabilidad)
-5. **Implementar monitoring** (mejora debugging)
-6. **Verificación completa después de 100 usuarios** (dominio, términos y condiciones, políticas de privacidad, etc.)
+### Corto Plazo (0-100 usuarios):
+1. **Conseguir los primeros 100 usuarios** (enfoque lean) ⭐
+2. **Mejoras del agente basadas en feedback de usuarios**
+3. **Agregar validación de formularios** (mejora UX)
+4. **Mantener polling** (funciona perfectamente para MVP)
+
+### Mediano Plazo (100-500 usuarios):
+5. **Monitorear métricas de performance** (polling vs costo)
+6. **Agregar retry logic para Google APIs** (mejora confiabilidad)
+7. **Implementar monitoring** (Sentry o similar)
+8. **Preparar migración a Render.com** para WebSocket
+
+### Largo Plazo (500+ usuarios):
+9. **Migrar backend a Render.com** (soporte nativo de WebSocket) ⚡
+10. **Habilitar WebSocket** para actualizaciones instantáneas
+11. **Verificación completa de Google OAuth** (dominio, términos, políticas)
+12. **Optimizar bundle size** (code splitting, lazy loading)
+
+**Ver `ROADMAP_WEBSOCKET_ESCALAMIENTO.md` para plan detallado.**
 
 ---
 
@@ -592,12 +618,24 @@ Todos los bugs críticos han sido corregidos. Los únicos problemas conocidos so
 
 Lee estos archivos para contexto completo:
 
+### Contexto General:
 1. **`PROMPT_COMPLETO_NUEVO_CHAT.md`** - Contexto inicial completo del proyecto
 2. **`PROMPT_NUEVO_CHAT_MEJORAS.md`** - Contexto inicial completo del proyecto
 3. **`REVISION_COMPLETA_Y_AREAS_OPORTUNIDAD.md`** - Revisión técnica y áreas de oportunidad
+
+### Publicación y Deployment:
 4. **`GUIA_PUBLICACION_Y_PRIMER_USUARIO.md`** - Guía paso a paso para publicar
 5. **`PUBLICAR_APP_EN_GOOGLE_CLOUD.md`** - Cómo publicar en Google Cloud
 6. **`GUIA_PUBLICACION_RAFAGENT.md`** - Guía general de publicación
+
+### Mejoras Recientes (Noviembre 2025):
+7. **`MEJORAS_NOVIEMBRE_2025_PARTE_2.md`** - Sistema de notificaciones, panel admin, colores
+8. **`SISTEMA_COLORES_COHERENTE.md`** - Esquema de colores de la aplicación
+
+### Escalamiento y Futuro:
+9. **`ROADMAP_WEBSOCKET_ESCALAMIENTO.md`** - Plan para WebSocket a los 500 usuarios ⭐
+10. **`WEBSOCKET_CONFIGURACION.md`** - Configuración técnica de WebSocket
+11. **`WEBSOCKET_RAILWAY_PROBLEMA.md`** - Problemas de Railway con WebSocket
 
 ---
 
