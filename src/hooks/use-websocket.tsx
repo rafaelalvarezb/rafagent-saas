@@ -40,18 +40,31 @@ export function useWebSocket() {
       reconnection: true,
       reconnectionDelay: 2000,
       reconnectionAttempts: maxAttempts,
-      transports: ['websocket', 'polling'], // Try both transports
-      timeout: 10000, // 10 second timeout
+      transports: ['polling', 'websocket'], // Start with polling, then upgrade to websocket
+      timeout: 20000, // 20 second timeout
+      path: '/socket.io/',
+      autoConnect: true,
+      upgrade: true, // Allow transport upgrade
+      rememberUpgrade: true, // Remember successful upgrade
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('✅ WebSocket connected successfully to:', socket.io.uri);
+      const transport = socket.io.engine.transport.name;
+      console.log('✅ WebSocket connected successfully!');
+      console.log('🚀 Transport type:', transport);
+      console.log('📍 Connected to:', socket.io.uri);
       connectionAttempts.current = 0; // Reset counter on successful connection
+      
       // Join user-specific room
       socket.emit('join', user.id);
       console.log('📤 Sent join event for user:', user.id);
+    });
+
+    // Listen for transport upgrade (polling → websocket)
+    socket.io.engine.on('upgrade', (transport) => {
+      console.log('⬆️ Transport upgraded to:', transport.name);
     });
 
     socket.on('disconnect', (reason) => {
