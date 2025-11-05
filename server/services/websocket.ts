@@ -5,15 +5,26 @@ import type { Server } from "socket.io";
 let io: Server | null = null;
 
 export function initializeWebSocket(httpServer: HTTPServer): Server {
+  // Allow both production and development URLs
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || "https://rafagent-saas.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:5174", // Vite preview
+  ].filter(Boolean);
+
+  console.log('🔌 Initializing WebSocket with CORS origins:', allowedOrigins);
+
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:5173",
+      origin: allowedOrigins,
       credentials: true,
+      methods: ["GET", "POST"],
     },
+    transports: ['websocket', 'polling'],
   });
 
   io.on("connection", (socket) => {
-    console.log(`🔌 Client connected: ${socket.id}`);
+    console.log(`🔌 Client connected: ${socket.id} from ${socket.handshake.address}`);
 
     // Join user-specific room
     socket.on("join", (userId: string) => {

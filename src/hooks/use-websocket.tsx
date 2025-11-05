@@ -16,15 +16,14 @@ export function useWebSocket() {
       return;
     }
 
-    // Temporarily disable WebSocket in production due to Railway configuration issues
-    if (import.meta.env.PROD) {
-      console.log('⚠️ WebSocket disabled in production - using polling instead');
-      return;
-    }
-
-    const wsUrl = 'http://localhost:3000';
+    // Use Railway URL in production, localhost in development
+    const wsUrl = import.meta.env.PROD 
+      ? 'https://rafagent-engine-production.up.railway.app'
+      : 'http://localhost:3000';
+    
     console.log('🔌 Attempting to connect to WebSocket:', wsUrl);
     console.log('👤 User ID:', user.id);
+    console.log('🌍 Environment:', import.meta.env.PROD ? 'PRODUCTION' : 'DEVELOPMENT');
 
     // Initialize WebSocket connection
     const socket = io(wsUrl, {
