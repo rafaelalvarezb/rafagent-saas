@@ -58,7 +58,7 @@ export function DashboardStats() {
       title: "Total Sent",
       value: analytics?.totalSent.toString() || "0",
       icon: <Send className="h-5 w-5" />,
-      color: "bg-green-500",
+      color: "bg-yellow-500",
     },
     {
       title: "Total Opened",
@@ -70,13 +70,13 @@ export function DashboardStats() {
       title: "Total Replied",
       value: analytics?.totalReplied.toString() || "0",
       icon: <MessageCircle className="h-5 w-5" />,
-      color: "bg-yellow-500",
+      color: "bg-purple-500",
     },
     {
       title: "Meetings Scheduled",
       value: analytics?.totalMeetingsScheduled.toString() || "0",
       icon: <Calendar className="h-5 w-5" />,
-      color: "bg-purple-500",
+      color: "bg-green-500",
     },
   ];
 

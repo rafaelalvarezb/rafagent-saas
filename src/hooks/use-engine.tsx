@@ -72,7 +72,26 @@ export function useEngineHealth() {
   const checkHealth = async () => {
     try {
       // Use frontend server endpoint that redirects to engine
-      const response = await fetch('/api/engine/health');
+      const response = await fetch('/api/engine/health', {
+        credentials: 'include', // Important for cookies/JWT
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('rafagent_token') || ''}`
+        }
+      });
+      
+      if (!response.ok) {
+        // If 401 or 403, user might not have access (non-admin)
+        if (response.status === 401 || response.status === 403) {
+          setHealth({
+            isHealthy: false,
+            lastCheck: new Date(),
+            error: 'Unauthorized: Admin access required'
+          });
+          return;
+        }
+        throw new Error(`Health check failed: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       
       setHealth({

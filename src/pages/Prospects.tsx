@@ -1186,15 +1186,15 @@ export default function Prospects() {
 
                         {/* Replied */}
                         <div className="flex items-start gap-3">
-                          <div className="rounded-full p-2 bg-green-100 dark:bg-green-900/30">
-                            <Reply className="h-5 w-5 text-green-600 dark:text-green-400" />
+                          <div className="rounded-full p-2 bg-purple-100 dark:bg-purple-900/30">
+                            <Reply className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                           </div>
                           <div className="flex-1">
                             <h4 className="font-medium text-sm mb-1">Replied</h4>
                             {prospect.repliedAt ? (
                               <div className="text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1">
-                                  <Check className="h-3 w-3 text-green-600" />
+                                  <Check className="h-3 w-3 text-purple-600" />
                                   <span>Replied</span>
                                 </div>
                                 <div className="text-xs mt-1">
@@ -1215,8 +1215,8 @@ export default function Prospects() {
 
                         {/* Meeting Scheduled */}
                         <div className="flex items-start gap-3">
-                          <div className="rounded-full p-2 bg-purple-100 dark:bg-purple-900/30">
-                            <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                          <div className="rounded-full p-2 bg-green-100 dark:bg-green-900/30">
+                            <Calendar className="h-5 w-5 text-green-600 dark:text-green-400" />
                           </div>
                           <div className="flex-1">
                             <h4 className="font-medium text-sm mb-1">Meeting Scheduled</h4>

@@ -1,5 +1,6 @@
 import { DashboardStats } from "@/components/DashboardStats";
 import { EngineStatusCard } from "@/components/EngineStatusCard";
+import { AdminUsersPanel } from "@/components/AdminUsersPanel";
 import { BadgeSystem } from "@/components/BadgeSystem";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -83,6 +84,9 @@ export default function Dashboard() {
       {/* Engine Status Card - Only for admin */}
       {isAdmin && <EngineStatusCard />}
 
+      {/* Admin Users Panel - Only for admin */}
+      {isAdmin && <AdminUsersPanel />}
+
       {/* Badge System */}
       <BadgeSystem analytics={analytics} />
 
@@ -161,6 +165,21 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-4">
+          {/* 
+            ====================================================================
+            QUICK ACTIONS SECTION - TEMPORARILY HIDDEN (NOVEMBER 2025)
+            ====================================================================
+            This section has been hidden per user request but can be re-enabled
+            by uncommenting the code below. The section includes:
+            - Add New Prospect
+            - Execute AI Agent
+            - Manage Templates
+            - Settings
+            
+            To re-enable: Remove this comment block and uncomment the code below.
+            ====================================================================
+          */}
+          {/* 
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Quick Actions</h2>
           </div>
@@ -229,6 +248,7 @@ export default function Dashboard() {
               </div>
             </Button>
           </div>
+          */}
 
           {/* Performance Summary */}
           <Card className="mt-6">
