@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
@@ -9,10 +9,19 @@ export function useWebSocket() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [connectionFailed, setConnectionFailed] = useState(false);
+  const connectionAttempts = useRef(0);
+  const maxAttempts = 3;
 
   useEffect(() => {
     if (!user) {
       console.log('❌ No user found, skipping WebSocket connection');
+      return;
+    }
+
+    // If connection failed after max attempts, don't try again
+    if (connectionFailed) {
+      console.log('⚠️ WebSocket connection failed after multiple attempts - using polling only');
       return;
     }
 
@@ -29,40 +38,43 @@ export function useWebSocket() {
     const socket = io(wsUrl, {
       withCredentials: true,
       reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+      reconnectionAttempts: maxAttempts,
       transports: ['websocket', 'polling'], // Try both transports
+      timeout: 10000, // 10 second timeout
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('🔌 WebSocket connected to:', socket.io.uri);
+      console.log('✅ WebSocket connected successfully to:', socket.io.uri);
+      connectionAttempts.current = 0; // Reset counter on successful connection
       // Join user-specific room
       socket.emit('join', user.id);
       console.log('📤 Sent join event for user:', user.id);
     });
 
-    socket.on('disconnect', () => {
-      console.log('❌ WebSocket disconnected');
+    socket.on('disconnect', (reason) => {
+      console.log('❌ WebSocket disconnected:', reason);
     });
 
     socket.on('connect_error', (error) => {
-      console.error('❌ WebSocket connection error:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        description: error.description,
-        context: error.context,
-        type: error.type,
-      });
+      connectionAttempts.current += 1;
+      console.error(`❌ WebSocket connection error (attempt ${connectionAttempts.current}/${maxAttempts}):`, error.message);
+      
+      if (connectionAttempts.current >= maxAttempts) {
+        console.log('⚠️ Max connection attempts reached. Falling back to polling only.');
+        setConnectionFailed(true);
+      }
     });
 
     socket.on('reconnect_error', (error) => {
-      console.error('🔄 WebSocket reconnection error:', error);
+      console.error('🔄 WebSocket reconnection error:', error.message);
     });
 
     socket.on('reconnect_failed', () => {
-      console.error('🔄 WebSocket reconnection failed after all attempts');
+      console.log('⚠️ WebSocket reconnection failed - using polling as fallback');
+      setConnectionFailed(true);
     });
 
     // Listen for prospect status changes
