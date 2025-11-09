@@ -52,6 +52,11 @@ export default function TimezoneSelector({ currentTimezone, onTimezoneChange }: 
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
 
+  // Sync internal state when currentTimezone prop changes (e.g., after saving)
+  useEffect(() => {
+    setSelectedTimezone(currentTimezone);
+  }, [currentTimezone]);
+
   // Group timezones by region
   const groupedTimezones = TIMEZONE_OPTIONS.reduce((acc, timezone) => {
     if (!acc[timezone.region]) {

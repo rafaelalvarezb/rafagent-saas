@@ -45,7 +45,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex items-center gap-2">
               <NotificationBell />
-              <ThemeToggle />
+            <ThemeToggle />
             </div>
           </header>
           <main className="flex-1 overflow-auto">

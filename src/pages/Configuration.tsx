@@ -92,7 +92,23 @@ export default function Configuration() {
       if (!response.ok) throw new Error("Failed to update configuration");
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (updatedConfig: UserConfig) => {
+      // Update local state immediately with the response from backend
+      const workingDaysArray = typeof updatedConfig.workingDays === 'string'
+        ? updatedConfig.workingDays.split(',').map(d => d.trim())
+        : updatedConfig.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+      
+      setConfig({
+        customName: updatedConfig.customName || user?.name || '',
+        daysBetweenFollowups: updatedConfig.daysBetweenFollowups || 3,
+        agentFrequencyHours: updatedConfig.agentFrequencyHours || 0.5,
+        searchStartTime: updatedConfig.searchStartTime || '09:00',
+        searchEndTime: updatedConfig.searchEndTime || '17:00',
+        workingDays: workingDaysArray,
+        timezone: updatedConfig.timezone || 'America/Mexico_City',
+      });
+      
+      // Invalidate query to ensure cache is updated
       queryClient.invalidateQueries({ queryKey: ["user-config"] });
       toast({
         title: "Configuration Updated",
