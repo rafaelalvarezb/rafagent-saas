@@ -4,9 +4,12 @@ import { AdminUsersPanel } from "@/components/AdminUsersPanel";
 import { BadgeSystem } from "@/components/BadgeSystem";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useAdminView } from "@/hooks/use-admin-view";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { ExternalLink, UserPlus, Mail, Calendar, BarChart3, Settings, Play, Eye, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
@@ -30,6 +33,12 @@ export default function Dashboard() {
   // Only show Engine Status Card to admin (rafaelalvrzb@gmail.com)
   const ADMIN_EMAIL = 'rafaelalvrzb@gmail.com';
   const isAdmin = user?.email === ADMIN_EMAIL;
+  
+  // Admin view toggle - allows admin to switch between admin view and standard user view
+  const [isAdminViewEnabled, setAdminViewEnabled] = useAdminView();
+  
+  // Show admin sections only if user is admin AND admin view is enabled
+  const showAdminSections = isAdmin && isAdminViewEnabled;
 
   // Fetch real prospects
   const { data: prospects = [] } = useQuery<Prospect[]>({
@@ -68,24 +77,40 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold" data-testid="text-page-title">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Welcome back! Here's your sales overview</p>
         </div>
-        <Button 
-          onClick={() => setLocation('/prospects?add=true')}
-          size="lg"
-          className="gap-2"
-          data-testid="button-add-prospect"
-        >
-          <UserPlus className="h-5 w-5" />
-          Add Prospect
-        </Button>
+        <div className="flex items-center gap-4">
+          {/* Admin View Toggle - Only visible to admin */}
+          {isAdmin && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md border border-border">
+              <Label htmlFor="admin-view-toggle" className="text-sm font-medium cursor-pointer">
+                Admin View
+              </Label>
+              <Switch
+                id="admin-view-toggle"
+                checked={isAdminViewEnabled}
+                onCheckedChange={setAdminViewEnabled}
+                aria-label="Toggle admin view"
+              />
+            </div>
+          )}
+          <Button 
+            onClick={() => setLocation('/prospects?add=true')}
+            size="lg"
+            className="gap-2"
+            data-testid="button-add-prospect"
+          >
+            <UserPlus className="h-5 w-5" />
+            Add Prospect
+          </Button>
+        </div>
       </div>
 
       <DashboardStats />
 
-      {/* Engine Status Card - Only for admin */}
-      {isAdmin && <EngineStatusCard />}
+      {/* Engine Status Card - Only for admin when admin view is enabled */}
+      {showAdminSections && <EngineStatusCard />}
 
-      {/* Admin Users Panel - Only for admin */}
-      {isAdmin && <AdminUsersPanel />}
+      {/* Admin Users Panel - Only for admin when admin view is enabled */}
+      {showAdminSections && <AdminUsersPanel />}
 
       {/* Badge System */}
       <BadgeSystem analytics={analytics} />
