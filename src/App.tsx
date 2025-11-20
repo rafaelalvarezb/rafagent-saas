@@ -15,6 +15,8 @@ import Templates from "@/pages/Templates";
 import Configuration from "@/pages/Configuration";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsOfService from "@/pages/TermsOfService";
 
 function Router() {
   return (
@@ -98,6 +100,12 @@ function App() {
                    <Configuration />
                  </AuthenticatedLayout>
                </RequireAuth>
+             </Route>
+             <Route path="/privacy">
+               <PrivacyPolicy />
+             </Route>
+             <Route path="/terms">
+               <TermsOfService />
              </Route>
              <Route component={NotFound} />
           </Switch>

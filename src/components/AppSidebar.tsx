@@ -66,7 +66,7 @@ export function AppSidebar() {
       <SidebarHeader className="border-b">
         <div className="px-4 py-4">
           <div>
-          <h2 className="text-lg font-bold">RafAgent</h2>
+          <h2 className="text-lg font-bold">Sendler.ai</h2>
           <p className="text-xs text-muted-foreground">AI-Powered Sales</p>
           </div>
         </div>

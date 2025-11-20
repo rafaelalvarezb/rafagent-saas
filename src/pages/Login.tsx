@@ -23,7 +23,7 @@ export default function Login() {
         <div className="space-y-6">
           <div className="space-y-2">
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-              RafAgent
+              Sendler.ai
             </h1>
             <p className="text-xl text-muted-foreground">
               AI-Powered Outbound Sales Automation
@@ -131,8 +131,15 @@ export default function Login() {
               Continue with Google
             </Button>
 
-            <div className="text-xs text-center text-muted-foreground pt-4 border-t">
-              By signing in, you agree to connect your Gmail and Google Calendar for outbound automation
+            <div className="text-xs text-center text-muted-foreground pt-4 border-t space-y-2">
+              <p>
+                By signing in, you agree to connect your Gmail and Google Calendar for outbound automation
+              </p>
+              <p className="flex items-center justify-center gap-2">
+                <a href="/terms" className="text-primary hover:underline">Terms of Service</a>
+                <span>•</span>
+                <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>
+              </p>
             </div>
           </CardContent>
         </Card>

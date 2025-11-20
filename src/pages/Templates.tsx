@@ -37,7 +37,8 @@ import {
   Mail,
   Info,
   Clock,
-  Copy
+  Copy,
+  Clone
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiCall } from "@/lib/api";
@@ -74,9 +75,12 @@ export default function Templates() {
   const [isCreateSequenceOpen, setIsCreateSequenceOpen] = useState(false);
   const [isMeetingTemplateOpen, setIsMeetingTemplateOpen] = useState(false);
   const [isEditTemplateOpen, setIsEditTemplateOpen] = useState(false);
+  const [isCloneSequenceOpen, setIsCloneSequenceOpen] = useState(false);
   const [editingSequence, setEditingSequence] = useState<Sequence | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [cloningSequence, setCloningSequence] = useState<Sequence | null>(null);
   const [newSequenceName, setNewSequenceName] = useState("");
+  const [cloneSequenceName, setCloneSequenceName] = useState("");
   const [editingSequenceName, setEditingSequenceName] = useState<string | null>(null);
   const [tempSequenceName, setTempSequenceName] = useState("");
 
@@ -168,6 +172,39 @@ export default function Templates() {
     onError: (error: Error) => {
       toast({
         title: "Cannot delete sequence",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Clone sequence mutation
+  const cloneSequenceMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const response = await apiCall(`/sequences/${id}/clone`, {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to clone sequence");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      queryClient.invalidateQueries({ queryKey: ["templates"] });
+      setIsCreateSequenceOpen(false);
+      setNewSequenceName("");
+      toast({
+        title: "Sequence duplicated!",
+        description: "Your sequence has been duplicated with all templates.",
+        variant: "success" as any,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Cannot duplicate sequence",
         description: error.message,
         variant: "destructive",
       });
@@ -385,6 +422,19 @@ export default function Templates() {
                     <Calendar className="h-4 w-4 mr-2" />
                     Meeting Template
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCloningSequence(sequence);
+                      setCloneSequenceName(`${sequence.name} Copy`);
+                      setIsCloneSequenceOpen(true);
+                    }}
+                    className="shadow-sm hover:shadow-md transition-all"
+                  >
+                    <Clone className="h-4 w-4 mr-2" />
+                    Duplicate
+                  </Button>
                   {!sequence.isDefault && (
                     <Button
                       variant="ghost"
@@ -531,6 +581,64 @@ export default function Templates() {
                 </>
               ) : (
                 "Create Sequence"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clone Sequence Dialog */}
+      <Dialog open={isCloneSequenceOpen} onOpenChange={setIsCloneSequenceOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duplicate Sequence</DialogTitle>
+            <DialogDescription>
+              Create a copy of "{cloningSequence?.name}" with all its templates. You can modify the new sequence after creating it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="clone-sequence-name">New Sequence Name</Label>
+              <Input
+                id="clone-sequence-name"
+                placeholder="e.g., Agency Sequence Copy"
+                value={cloneSequenceName}
+                onChange={(e) => setCloneSequenceName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && cloneSequenceName.trim() && cloningSequence) {
+                    cloneSequenceMutation.mutate({ id: cloningSequence.id, name: cloneSequenceName.trim() });
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsCloneSequenceOpen(false);
+              setCloneSequenceName("");
+              setCloningSequence(null);
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (cloningSequence && cloneSequenceName.trim()) {
+                  cloneSequenceMutation.mutate({ id: cloningSequence.id, name: cloneSequenceName.trim() });
+                }
+              }}
+              disabled={!cloneSequenceName.trim() || cloneSequenceMutation.isPending}
+            >
+              {cloneSequenceMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Duplicating...
+                </>
+              ) : (
+                <>
+                  <Clone className="mr-2 h-4 w-4" />
+                  Duplicate Sequence
+                </>
               )}
             </Button>
           </DialogFooter>
