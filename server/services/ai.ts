@@ -177,6 +177,13 @@ ${emailBody}
   return result;
 }
 
+// Extract first name from full name
+function extractFirstName(fullName: string): string {
+  if (!fullName) return '';
+  // Split by space and take first part
+  return fullName.trim().split(/\s+/)[0];
+}
+
 export function replaceTemplateVariables(
   text: string,
   variables: {
@@ -190,9 +197,12 @@ export function replaceTemplateVariables(
 ): string {
   if (!text) return "";
   
+  // Extract first name from contactName (in case it contains full name)
+  const firstName = extractFirstName(variables.contactName || "");
+  
   return text
     .replace(/\$\{externalCID\}/g, variables.externalCid || "")
-    .replace(/\$\{contactName\}/g, variables.contactName || "")
+    .replace(/\$\{contactName\}/g, firstName)
     .replace(/\$\{companyName\}/g, variables.companyName || "")
     .replace(/\$\{contactTitle\}/g, variables.contactTitle || "")
     .replace(/\$\{industry\}/g, variables.industry || "")

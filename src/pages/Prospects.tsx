@@ -608,15 +608,22 @@ export default function Prospects() {
     headers.forEach(header => {
       const lowerHeader = header.toLowerCase();
       
-      if (lowerHeader.includes('first name') || lowerHeader.includes('firstname')) {
+      // Map first name (extract first name from full name if needed)
+      if (lowerHeader.includes('first name') || lowerHeader.includes('firstname') || 
+          lowerHeader === 'first name' || lowerHeader === 'firstname') {
         mapping[header] = 'contactName';
-      } else if (lowerHeader.includes('email') && lowerHeader.includes('address')) {
+      } else if (lowerHeader.includes('name') && !lowerHeader.includes('company') && !lowerHeader.includes('last')) {
+        // If it's just "name" or "contact name", also map to contactName
+        mapping[header] = 'contactName';
+      } else if (lowerHeader.includes('email') || lowerHeader.includes('e-mail')) {
         mapping[header] = 'contactEmail';
-      } else if (lowerHeader.includes('job title') || lowerHeader.includes('jobtitle') || lowerHeader.includes('title')) {
+      } else if (lowerHeader.includes('job title') || lowerHeader.includes('jobtitle') || 
+                 lowerHeader.includes('title') || lowerHeader.includes('position')) {
         mapping[header] = 'contactTitle';
-      } else if (lowerHeader.includes('company name') || lowerHeader.includes('companyname') || lowerHeader.includes('company')) {
+      } else if (lowerHeader.includes('company name') || lowerHeader.includes('companyname') || 
+                 lowerHeader.includes('company') || lowerHeader.includes('organization')) {
         mapping[header] = 'companyName';
-      } else if (lowerHeader.includes('industry') || lowerHeader.includes('primary industry')) {
+      } else if (lowerHeader.includes('industry') || lowerHeader.includes('sector')) {
         mapping[header] = 'industry';
       }
     });
@@ -697,14 +704,27 @@ export default function Prospects() {
 
   // Download CSV template
   const downloadTemplate = () => {
+    // Use descriptive headers that users will understand
+    // Note: We'll map "First Name" to contactName in the backend
     const templateData = [
-      ['contactName', 'contactEmail', 'contactTitle', 'companyName', 'industry'],
-      ['John Doe', 'john.doe@example.com', 'CEO', 'Acme Corp', 'Technology'],
-      ['Jane Smith', 'jane.smith@example.com', 'Marketing Director', 'TechStart Inc', 'Marketing'],
-      ['Bob Johnson', 'bob.johnson@example.com', 'Sales Manager', 'Global Solutions', 'Sales'],
+      ['First Name', 'Email Address', 'Job Title', 'Company Name', 'Industry'],
+      ['John', 'john.doe@example.com', 'CEO', 'Acme Corp', 'Technology'],
+      ['Jane', 'jane.smith@example.com', 'Marketing Director', 'TechStart Inc', 'Marketing'],
+      ['Bob', 'bob.johnson@example.com', 'Sales Manager', 'Global Solutions', 'Sales'],
     ];
 
-    const csvContent = templateData.map(row => row.join(',')).join('\n');
+    // Create CSV with proper encoding (BOM for Excel compatibility)
+    const BOM = '\uFEFF';
+    const csvContent = BOM + templateData.map(row => 
+      row.map(cell => {
+        // Escape cells that contain commas, quotes, or newlines
+        if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+          return `"${cell.replace(/"/g, '""')}"`;
+        }
+        return cell;
+      }).join(',')
+    ).join('\n');
+    
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -714,10 +734,11 @@ export default function Prospects() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     
     toast({
       title: "Template Downloaded",
-      description: "Fill in the template with your prospects and upload it back.",
+      description: "Fill in the template with your prospects and upload it back. Only the first name will be used in emails.",
       variant: "success" as any,
     });
   };
@@ -732,14 +753,26 @@ export default function Prospects() {
     });
   };
 
-  // Update generateMappedData to filter example data
+  // Extract first name from full name
+  const extractFirstName = (fullName: string): string => {
+    if (!fullName) return '';
+    // Split by space and take first part
+    return fullName.trim().split(/\s+/)[0];
+  };
+
+  // Update generateMappedData to filter example data and extract first names
   const generateMappedDataWithFilter = (data: any[], mapping: {[key: string]: string}) => {
     try {
       const mapped = data.map(row => {
         const prospect: any = {};
         Object.entries(mapping).forEach(([csvColumn, prospectField]) => {
           if (prospectField && row[csvColumn]) {
-            prospect[prospectField] = row[csvColumn];
+            // If it's contactName, extract only the first name
+            if (prospectField === 'contactName') {
+              prospect[prospectField] = extractFirstName(row[csvColumn]);
+            } else {
+              prospect[prospectField] = row[csvColumn];
+            }
           }
         });
         return prospect;
@@ -1602,7 +1635,7 @@ export default function Prospects() {
                 </div>
 
                 {/* Download Template Button */}
-                <div className="flex items-center justify-center">
+                <div className="flex items-center justify-center gap-4">
                   <Button
                     onClick={downloadTemplate}
                     variant="outline"
@@ -1612,21 +1645,51 @@ export default function Prospects() {
                     <FileSpreadsheet className="h-5 w-5" />
                     Download CSV Template
                   </Button>
+                  <div className="text-sm text-muted-foreground">
+                    <span className="text-muted-foreground">or</span>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      // TODO: Replace with your actual Google Sheets template link
+                      // Get the link from: https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit?usp=sharing&copy=true
+                      const sheetUrl = 'https://docs.google.com/spreadsheets/d/1YOUR_SHEET_ID/edit?usp=sharing&copy=true';
+                      if (sheetUrl.includes('YOUR_SHEET_ID')) {
+                        toast({
+                          title: "Template Not Configured",
+                          description: "Please configure the Google Sheets template link. See GUIA_GOOGLE_SHEETS_TEMPLATE.md for instructions.",
+                          variant: "default",
+                        });
+                      } else {
+                        window.open(sheetUrl, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                    variant="outline"
+                    size="lg"
+                    className="gap-2"
+                  >
+                    <FileSpreadsheet className="h-5 w-5" />
+                    Use Google Sheets Template
+                  </Button>
                 </div>
 
                 {/* Template Info */}
                 <div className="text-center space-y-2">
                   <p className="text-sm font-medium">Template includes:</p>
-                  <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                    <span>• Contact Name</span>
+                  <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground flex-wrap">
+                    <span>• First Name (only first name used in emails)</span>
                     <span>• Email Address</span>
                     <span>• Job Title</span>
                     <span>• Company Name</span>
                     <span>• Industry</span>
                   </div>
-                  <p className="text-xs text-muted-foreground italic">
-                    Note: Example data in the template will be automatically removed when you upload
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground italic">
+                      Note: Example data in the template will be automatically removed when you upload
+                    </p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                      💡 Tip: If you enter a full name (e.g., "John Doe"), only "John" will be used in emails
+                    </p>
+                  </div>
                 </div>
 
                 {/* Divider */}
@@ -1739,7 +1802,7 @@ export default function Prospects() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="skip">Skip this column</SelectItem>
-                              <SelectItem value="contactName">First Name *</SelectItem>
+                              <SelectItem value="contactName">First Name * (only first name will be used)</SelectItem>
                               <SelectItem value="contactEmail">Email Address *</SelectItem>
                               <SelectItem value="contactTitle">Job Title</SelectItem>
                               <SelectItem value="companyName">Company Name</SelectItem>
