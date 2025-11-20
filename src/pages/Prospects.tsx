@@ -76,6 +76,8 @@ import {
   ChevronDown,
   ChevronRight,
   Reply,
+  HelpCircle,
+  FileSpreadsheet,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -620,7 +622,7 @@ export default function Prospects() {
     });
 
     setColumnMapping(mapping);
-    generateMappedData(data, mapping);
+    generateMappedDataWithFilter(data, mapping);
   };
 
   // Generate mapped data
@@ -652,7 +654,7 @@ export default function Prospects() {
       newMapping[csvColumn] = prospectField;
     }
     setColumnMapping(newMapping);
-    generateMappedData(csvData, newMapping);
+    generateMappedDataWithFilter(csvData, newMapping);
   };
 
   // Handle bulk import
@@ -691,6 +693,76 @@ export default function Prospects() {
     setIsPreviewMode(false);
     setIsProcessingFile(false);
     setBulkImportSequence("");
+  };
+
+  // Download CSV template
+  const downloadTemplate = () => {
+    const templateData = [
+      ['contactName', 'contactEmail', 'contactTitle', 'companyName', 'industry'],
+      ['John Doe', 'john.doe@example.com', 'CEO', 'Acme Corp', 'Technology'],
+      ['Jane Smith', 'jane.smith@example.com', 'Marketing Director', 'TechStart Inc', 'Marketing'],
+      ['Bob Johnson', 'bob.johnson@example.com', 'Sales Manager', 'Global Solutions', 'Sales'],
+    ];
+
+    const csvContent = templateData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'sendlr-prospects-template.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Template Downloaded",
+      description: "Fill in the template with your prospects and upload it back.",
+      variant: "success" as any,
+    });
+  };
+
+  // Validate and filter example data
+  const filterExampleData = (data: any[]): any[] => {
+    const exampleKeywords = ['example', 'ejemplo', 'sample', 'test', 'demo', 'placeholder', 'john doe', 'jane smith', 'bob johnson'];
+    
+    return data.filter(row => {
+      const values = Object.values(row).join(' ').toLowerCase();
+      return !exampleKeywords.some(keyword => values.includes(keyword));
+    });
+  };
+
+  // Update generateMappedData to filter example data
+  const generateMappedDataWithFilter = (data: any[], mapping: {[key: string]: string}) => {
+    try {
+      const mapped = data.map(row => {
+        const prospect: any = {};
+        Object.entries(mapping).forEach(([csvColumn, prospectField]) => {
+          if (prospectField && row[csvColumn]) {
+            prospect[prospectField] = row[csvColumn];
+          }
+        });
+        return prospect;
+      }).filter(p => p.contactName && p.contactEmail);
+
+      // Filter out example data
+      const filtered = filterExampleData(mapped);
+      
+      // Show warning if example data was filtered
+      if (filtered.length < mapped.length) {
+        const filteredCount = mapped.length - filtered.length;
+        toast({
+          title: "Example Data Removed",
+          description: `${filteredCount} row(s) containing example data were automatically removed.`,
+          variant: "default",
+        });
+      }
+
+      setMappedData(filtered);
+    } catch (error) {
+      console.error('Error generating mapped data:', error);
+      setMappedData([]);
+    }
   };
 
 
@@ -1492,7 +1564,7 @@ export default function Prospects() {
               Bulk Import Prospects
             </DialogTitle>
             <DialogDescription>
-              Drag and drop your CSV file or click to browse. We'll automatically map your columns to prospect fields.
+              Import multiple prospects at once using a CSV file. Download our template to get started.
             </DialogDescription>
           </DialogHeader>
 
@@ -1512,50 +1584,107 @@ export default function Prospects() {
               </div>
             ) : !csvFile ? (
               /* File Upload Area */
-              <div
-                onDrop={(e) => {
-                  try {
-                    handleFileDrop(e);
-                  } catch (error) {
-                    console.error('Error in drag and drop:', error);
-                    toast({
-                      title: "Upload Error",
-                      description: "An error occurred while processing the file.",
-                      variant: "destructive",
-                    });
-                  }
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                onDragEnter={(e) => e.preventDefault()}
-                className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                onClick={() => {
-                  try {
-                    document.getElementById('csv-file-input')?.click();
-                  } catch (error) {
-                    console.error('Error clicking file input:', error);
-                  }
-                }}
-              >
-                <div className="space-y-4">
-                  <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                    <Upload className="h-8 w-8 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">Drop your CSV file here</h3>
-                    <p className="text-muted-foreground">or click to browse files</p>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    <p>Supports files from ZoomInfo, LinkedIn, and other lead sources</p>
-                    <p>We'll automatically detect and map your columns</p>
+              <div className="space-y-6">
+                {/* Instructions Card */}
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <HelpCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-2 flex-1">
+                      <h3 className="font-semibold text-blue-900 dark:text-blue-100">How to Import Prospects</h3>
+                      <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                        <li>Download our CSV template below (or use your own CSV file)</li>
+                        <li>Fill in the template with your prospect information</li>
+                        <li>Save the file as CSV format</li>
+                        <li>Upload it here - we'll automatically map your columns</li>
+                      </ol>
+                    </div>
                   </div>
                 </div>
-                <input
-                  id="csv-file-input"
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileInput}
-                  className="hidden"
-                />
+
+                {/* Download Template Button */}
+                <div className="flex items-center justify-center">
+                  <Button
+                    onClick={downloadTemplate}
+                    variant="outline"
+                    size="lg"
+                    className="gap-2 border-2 border-dashed hover:border-solid"
+                  >
+                    <FileSpreadsheet className="h-5 w-5" />
+                    Download CSV Template
+                  </Button>
+                </div>
+
+                {/* Template Info */}
+                <div className="text-center space-y-2">
+                  <p className="text-sm font-medium">Template includes:</p>
+                  <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                    <span>• Contact Name</span>
+                    <span>• Email Address</span>
+                    <span>• Job Title</span>
+                    <span>• Company Name</span>
+                    <span>• Industry</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground italic">
+                    Note: Example data in the template will be automatically removed when you upload
+                  </p>
+                </div>
+
+                {/* Divider */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or upload your own CSV</span>
+                  </div>
+                </div>
+
+                {/* File Upload Area */}
+                <div
+                  onDrop={(e) => {
+                    try {
+                      handleFileDrop(e);
+                    } catch (error) {
+                      console.error('Error in drag and drop:', error);
+                      toast({
+                        title: "Upload Error",
+                        description: "An error occurred while processing the file.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragEnter={(e) => e.preventDefault()}
+                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    try {
+                      document.getElementById('csv-file-input')?.click();
+                    } catch (error) {
+                      console.error('Error clicking file input:', error);
+                    }
+                  }}
+                >
+                  <div className="space-y-4">
+                    <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                      <Upload className="h-8 w-8 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Drop your CSV file here</h3>
+                      <p className="text-muted-foreground">or click to browse files</p>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      <p>Supports files from ZoomInfo, LinkedIn, and other lead sources</p>
+                      <p>We'll automatically detect and map your columns</p>
+                    </div>
+                  </div>
+                  <input
+                    id="csv-file-input"
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileInput}
+                    className="hidden"
+                  />
+                </div>
               </div>
             ) : (
               /* Column Mapping Interface */
