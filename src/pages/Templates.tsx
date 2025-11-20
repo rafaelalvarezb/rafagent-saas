@@ -38,7 +38,7 @@ import {
   Info,
   Clock,
   Copy,
-  Clone
+  Files
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiCall } from "@/lib/api";
@@ -432,7 +432,7 @@ export default function Templates() {
                     }}
                     className="shadow-sm hover:shadow-md transition-all"
                   >
-                    <Clone className="h-4 w-4 mr-2" />
+                    <Files className="h-4 w-4 mr-2" />
                     Duplicate
                   </Button>
                   {!sequence.isDefault && (
@@ -636,7 +636,7 @@ export default function Templates() {
                 </>
               ) : (
                 <>
-                  <Clone className="mr-2 h-4 w-4" />
+                  <Files className="mr-2 h-4 w-4" />
                   Duplicate Sequence
                 </>
               )}
