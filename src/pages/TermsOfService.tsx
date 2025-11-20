@@ -13,7 +13,7 @@ export default function TermsOfService() {
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6">
             <p className="font-semibold text-yellow-900 dark:text-yellow-100 mb-2">IMPORTANT:</p>
             <p className="text-yellow-800 dark:text-yellow-200 text-sm leading-relaxed">
-              Please read this Terms of Service Agreement carefully before using Sendler.ai. By clicking 
+              Please read this Terms of Service Agreement carefully before using Sendlr.ai. By clicking 
               "accept" or using our service, you agree to be bound by these terms. If you do not agree 
               to these terms, please do not use our service.
             </p>
@@ -25,11 +25,11 @@ export default function TermsOfService() {
             <p className="text-muted-foreground leading-relaxed">
               These Terms of Service ("Terms") constitute a legally binding agreement between you ("User," 
               "you," or "your") and AGIT S.A. de C.V. ("Company," "we," "us," or "our") governing your 
-              access to and use of Sendler.ai, our software-as-a-service platform for automated outbound 
+              access to and use of Sendlr.ai, our software-as-a-service platform for automated outbound 
               sales and email management (the "Service").
             </p>
             <p className="text-muted-foreground leading-relaxed">
-              By accessing or using Sendler.ai, you agree to be bound by these Terms. If you disagree 
+              By accessing or using Sendlr.ai, you agree to be bound by these Terms. If you disagree 
               with any part of these Terms, you may not access or use the Service.
             </p>
           </section>
@@ -38,7 +38,7 @@ export default function TermsOfService() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">2. Description of Service</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Sendler.ai is an AI-powered sales automation platform that enables users to:
+              Sendlr.ai is an AI-powered sales automation platform that enables users to:
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
               <li>Create and manage email sequences and templates</li>
@@ -56,7 +56,7 @@ export default function TermsOfService() {
             <div className="space-y-3">
               <h3 className="text-xl font-medium">3.1 Registration</h3>
               <p className="text-muted-foreground leading-relaxed">
-                To use Sendler.ai, you must register for an account using your Google account. You agree to:
+                To use Sendlr.ai, you must register for an account using your Google account. You agree to:
               </p>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                 <li>Provide accurate, current, and complete information</li>
@@ -77,7 +77,7 @@ export default function TermsOfService() {
               </ul>
               <p className="text-muted-foreground leading-relaxed mt-3">
                 You may revoke these permissions at any time through your Google account settings or by 
-                disconnecting your account in Sendler.ai.
+                disconnecting your account in Sendlr.ai.
               </p>
             </div>
           </section>
@@ -86,7 +86,7 @@ export default function TermsOfService() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">4. Acceptable Use</h2>
             <p className="text-muted-foreground leading-relaxed">
-              You agree to use Sendler.ai only for lawful purposes and in accordance with these Terms. 
+              You agree to use Sendlr.ai only for lawful purposes and in accordance with these Terms. 
               You agree NOT to:
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
@@ -106,7 +106,7 @@ export default function TermsOfService() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">5. Email Sending Policies</h2>
             <p className="text-muted-foreground leading-relaxed">
-              You are responsible for ensuring that all emails sent through Sendler.ai comply with applicable 
+              You are responsible for ensuring that all emails sent through Sendlr.ai comply with applicable 
               laws and regulations, including:
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
@@ -149,7 +149,7 @@ export default function TermsOfService() {
             <div className="space-y-3">
               <h3 className="text-xl font-medium">7.1 Subscription Plans</h3>
               <p className="text-muted-foreground leading-relaxed">
-                Sendler.ai offers various subscription plans. Pricing and features are subject to change 
+                Sendlr.ai offers various subscription plans. Pricing and features are subject to change 
                 with notice. You agree to pay all fees associated with your selected plan.
               </p>
             </div>
@@ -174,7 +174,7 @@ export default function TermsOfService() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">8. Privacy</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Your use of Sendler.ai is also governed by our Privacy Policy. Please review our Privacy 
+              Your use of Sendlr.ai is also governed by our Privacy Policy. Please review our Privacy 
               Policy to understand how we collect, use, and protect your information.
             </p>
           </section>
@@ -250,8 +250,8 @@ export default function TermsOfService() {
             </p>
             <div className="bg-muted p-4 rounded-lg space-y-2">
               <p className="font-medium">AGIT S.A. de C.V.</p>
-              <p className="text-muted-foreground">Email: <a href="mailto:legal@sendler.ai" className="text-primary hover:underline">legal@sendler.ai</a></p>
-              <p className="text-muted-foreground">Website: <a href="https://sendler.ai" className="text-primary hover:underline">https://sendler.ai</a></p>
+              <p className="text-muted-foreground">Email: <a href="mailto:legal@sendlr.ai" className="text-primary hover:underline">legal@sendlr.ai</a></p>
+              <p className="text-muted-foreground">Website: <a href="https://sendlr.ai" className="text-primary hover:underline">https://sendlr.ai</a></p>
             </div>
           </section>
         </div>

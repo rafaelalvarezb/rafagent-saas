@@ -1,4 +1,4 @@
-# 📊 Análisis Detallado de Competidores - Sendler.ai
+# 📊 Análisis Detallado de Competidores - Sendlr.ai
 
 **Fecha:** Noviembre 2025  
 **Competidores Analizados:** Instantly.ai, Smartlead.ai, Saleshandy
@@ -8,8 +8,8 @@
 ## 🎯 Resumen Ejecutivo
 
 Este documento analiza las capacidades de tres competidores principales en el mercado de automatización de ventas outbound: Instantly.ai, Smartlead.ai y Saleshandy. El objetivo es identificar:
-1. **Capacidades que Sendler.ai ya tiene** (ventajas competitivas)
-2. **Capacidades que Sendler.ai NO tiene** (oportunidades de mejora)
+1. **Capacidades que Sendlr.ai ya tiene** (ventajas competitivas)
+2. **Capacidades que Sendlr.ai NO tiene** (oportunidades de mejora)
 3. **Recomendaciones** para cerrar la brecha competitiva
 
 ---
@@ -23,57 +23,57 @@ Este documento analiza las capacidades de tres competidores principales en el me
 - Personalización avanzada con variables dinámicas
 - A/B testing de templates
 - Programación inteligente de emails
-- **Sendler.ai tiene:** ✅ Sí (secuencias automatizadas con templates)
+- **Sendlr.ai tiene:** ✅ Sí (secuencias automatizadas con templates)
 
 #### 2. **Lead Database**
 - Base de datos integrada con millones de leads
 - Búsqueda y filtrado avanzado
 - Enrichment de datos de contactos
-- **Sendler.ai tiene:** ❌ No (los usuarios importan sus propios leads)
+- **Sendlr.ai tiene:** ❌ No (los usuarios importan sus propios leads)
 
 #### 3. **Deliverability Network**
 - Red de entregabilidad premium
 - Rotación de bandejas de entrada
 - Calentamiento de emails automático
 - Monitoreo de reputación de dominio
-- **Sendler.ai tiene:** ❌ No (usa Gmail directamente del usuario)
+- **Sendlr.ai tiene:** ❌ No (usa Gmail directamente del usuario)
 
 #### 4. **CRM Integrado**
 - CRM básico integrado en la plataforma
 - Gestión de contactos y pipelines
-- **Sendler.ai tiene:** ❌ No (pero planea integrar con CRMs externos)
+- **Sendlr.ai tiene:** ❌ No (pero planea integrar con CRMs externos)
 
 #### 5. **LinkedIn Integration**
 - Envío de solicitudes de conexión automatizadas
 - Envío de mensajes en LinkedIn
 - Secuencias multicanal (Email + LinkedIn)
-- **Sendler.ai tiene:** ❌ No
+- **Sendlr.ai tiene:** ❌ No
 
 #### 6. **AI Copilot**
 - Asistente de IA para escribir emails
 - Sugerencias de personalización
 - Optimización de subject lines
-- **Sendler.ai tiene:** ⚠️ Parcial (usa Gemini para análisis de respuestas, no para generación de templates)
+- **Sendlr.ai tiene:** ⚠️ Parcial (usa Gemini para análisis de respuestas, no para generación de templates)
 
 #### 7. **Email Accounts Verification**
 - Verificación de validez de emails
 - Limpieza de listas
-- **Sendler.ai tiene:** ❌ No
+- **Sendlr.ai tiene:** ❌ No
 
 #### 8. **Inbox Placement**
 - Monitoreo de placement en inbox vs spam
 - Alertas de problemas de entregabilidad
-- **Sendler.ai tiene:** ❌ No
+- **Sendlr.ai tiene:** ❌ No
 
 #### 9. **Website Visitors Tracking**
 - Tracking de visitantes del sitio web
 - Identificación de empresas que visitan
-- **Sendler.ai tiene:** ❌ No
+- **Sendlr.ai tiene:** ❌ No
 
 #### 10. **API y Automatización**
 - API completa para integraciones
 - Webhooks para eventos
-- **Sendler.ai tiene:** ⚠️ Parcial (tiene API básica, pero no documentada públicamente)
+- **Sendlr.ai tiene:** ⚠️ Parcial (tiene API básica, pero no documentada públicamente)
 
 ### 💰 Precios Instantly.ai
 - **Growth:** $37/mes (1,000 emails/mes)
@@ -89,51 +89,51 @@ Este documento analiza las capacidades de tres competidores principales en el me
 #### 1. **Email Outreach Automation**
 - Campañas automatizadas avanzadas
 - Personalización masiva
-- **Sendler.ai tiene:** ✅ Sí
+- **Sendlr.ai tiene:** ✅ Sí
 
 #### 2. **Premium Deliverability at Scale**
 - Entregabilidad premium a gran escala
 - Red de servidores optimizada
-- **Sendler.ai tiene:** ❌ No
+- **Sendlr.ai tiene:** ❌ No
 
 #### 3. **Unified Inbox**
 - Bandeja de entrada unificada para gestionar todo el flujo de ventas
 - Respuestas centralizadas
-- **Sendler.ai tiene:** ❌ No (usa Gmail nativo del usuario)
+- **Sendlr.ai tiene:** ❌ No (usa Gmail nativo del usuario)
 
 #### 4. **APIs & Automation**
 - APIs robustas para automatización
 - Webhooks avanzados
-- **Sendler.ai tiene:** ⚠️ Parcial
+- **Sendlr.ai tiene:** ⚠️ Parcial
 
 #### 5. **White-Label Options**
 - Opciones de marca blanca para agencias
 - Personalización completa
-- **Sendler.ai tiene:** ❌ No (pero está en el roadmap)
+- **Sendlr.ai tiene:** ❌ No (pero está en el roadmap)
 
 #### 6. **Unlimited Email Warmup**
 - Calentamiento ilimitado de emails
 - Mejora de reputación de dominio
-- **Sendler.ai tiene:** ❌ No
+- **Sendlr.ai tiene:** ❌ No
 
 #### 7. **Automated Follow-ups**
 - Seguimientos automatizados inteligentes
-- **Sendler.ai tiene:** ✅ Sí (secuencias con múltiples touchpoints)
+- **Sendlr.ai tiene:** ✅ Sí (secuencias con múltiples touchpoints)
 
 #### 8. **Multi-Channel Outreach**
 - Email + LinkedIn + SMS
 - Secuencias multicanal
-- **Sendler.ai tiene:** ❌ No (solo email)
+- **Sendlr.ai tiene:** ❌ No (solo email)
 
 #### 9. **Advanced Analytics**
 - Analytics detallados de campañas
 - Reportes de rendimiento
-- **Sendler.ai tiene:** ⚠️ Parcial (tiene analytics básicos)
+- **Sendlr.ai tiene:** ⚠️ Parcial (tiene analytics básicos)
 
 #### 10. **AI-Powered Features**
 - Generación de contenido con IA
 - Optimización de campañas
-- **Sendler.ai tiene:** ⚠️ Parcial (IA para análisis, no para generación)
+- **Sendlr.ai tiene:** ⚠️ Parcial (IA para análisis, no para generación)
 
 ### 💰 Precios Smartlead.ai
 - **Starter:** $39/mes (4,000 emails/mes)
@@ -149,52 +149,52 @@ Este documento analiza las capacidades de tres competidores principales en el me
 #### 1. **Email Tracking**
 - Tracking detallado de emails (opens, clicks, replies)
 - Notificaciones en tiempo real
-- **Sendler.ai tiene:** ⚠️ Parcial (tracking básico de opens y replies)
+- **Sendlr.ai tiene:** ⚠️ Parcial (tracking básico de opens y replies)
 
 #### 2. **Email Templates**
 - Biblioteca de templates
 - Templates reutilizables
-- **Sendler.ai tiene:** ✅ Sí (sistema completo de templates y secuencias)
+- **Sendlr.ai tiene:** ✅ Sí (sistema completo de templates y secuencias)
 
 #### 3. **Email Campaigns**
 - Campañas de email masivo
 - Programación de emails
-- **Sendler.ai tiene:** ✅ Sí (secuencias automatizadas)
+- **Sendlr.ai tiene:** ✅ Sí (secuencias automatizadas)
 
 #### 4. **Email Scheduling**
 - Programación de emails para enviar más tarde
 - Timezone awareness
-- **Sendler.ai tiene:** ✅ Sí (con timezone detection)
+- **Sendlr.ai tiene:** ✅ Sí (con timezone detection)
 
 #### 5. **LinkedIn Integration**
 - Integración con LinkedIn
 - Envío de mensajes desde Saleshandy
-- **Sendler.ai tiene:** ❌ No
+- **Sendlr.ai tiene:** ❌ No
 
 #### 6. **Email Analytics**
 - Analytics detallados de rendimiento
 - Reportes de campañas
-- **Sendler.ai tiene:** ⚠️ Parcial (analytics básicos en Dashboard)
+- **Sendlr.ai tiene:** ⚠️ Parcial (analytics básicos en Dashboard)
 
 #### 7. **Team Collaboration**
 - Colaboración en equipo
 - Compartir templates y campañas
-- **Sendler.ai tiene:** ❌ No (cada usuario tiene su cuenta individual)
+- **Sendlr.ai tiene:** ❌ No (cada usuario tiene su cuenta individual)
 
 #### 8. **CRM Integrations**
 - Integraciones con múltiples CRMs
 - Sincronización bidireccional
-- **Sendler.ai tiene:** ❌ No (pero está en el roadmap)
+- **Sendlr.ai tiene:** ❌ No (pero está en el roadmap)
 
 #### 9. **Email Warmup**
 - Calentamiento de emails
 - Mejora de entregabilidad
-- **Sendler.ai tiene:** ❌ No
+- **Sendlr.ai tiene:** ❌ No
 
 #### 10. **Advanced Personalization**
 - Personalización avanzada con variables
 - Merge tags dinámicos
-- **Sendler.ai tiene:** ✅ Sí (variables como ${contactName}, ${companyName}, etc.)
+- **Sendlr.ai tiene:** ✅ Sí (variables como ${contactName}, ${companyName}, etc.)
 
 ### 💰 Precios Saleshandy
 - **Outreach:** $9/mes (por usuario)
@@ -203,12 +203,12 @@ Este documento analiza las capacidades de tres competidores principales en el me
 
 ---
 
-## 📊 Comparativa: Capacidades que Sendler.ai YA TIENE
+## 📊 Comparativa: Capacidades que Sendlr.ai YA TIENE
 
-### ✅ Ventajas Competitivas de Sendler.ai
+### ✅ Ventajas Competitivas de Sendlr.ai
 
 1. **✅ Automatización de Email con Secuencias**
-   - Sendler.ai tiene sistema completo de secuencias con múltiples touchpoints
+   - Sendlr.ai tiene sistema completo de secuencias con múltiples touchpoints
    - Templates personalizables con variables dinámicas
    - Threading automático en Gmail
 
@@ -244,7 +244,7 @@ Este documento analiza las capacidades de tres competidores principales en el me
 
 ---
 
-## 📊 Comparativa: Capacidades que Sendler.ai NO TIENE
+## 📊 Comparativa: Capacidades que Sendlr.ai NO TIENE
 
 ### ❌ Oportunidades de Mejora Críticas
 
@@ -252,7 +252,7 @@ Este documento analiza las capacidades de tres competidores principales en el me
    - **Instantly.ai:** ✅ Sí
    - **Smartlead.ai:** ✅ Sí
    - **Saleshandy:** ✅ Sí
-   - **Sendler.ai:** ❌ No
+   - **Sendlr.ai:** ❌ No
    - **Impacto:** Alto - Muchos vendedores usan LinkedIn como canal principal
    - **Recomendación:** Implementar integración con LinkedIn API para:
      - Enviar solicitudes de conexión automatizadas
@@ -263,7 +263,7 @@ Este documento analiza las capacidades de tres competidores principales en el me
    - **Instantly.ai:** ✅ Sí (Deliverability Network)
    - **Smartlead.ai:** ✅ Sí (Premium Deliverability)
    - **Saleshandy:** ✅ Sí (Email Warmup)
-   - **Sendler.ai:** ❌ No
+   - **Sendlr.ai:** ❌ No
    - **Impacto:** Alto - Crítico para escalar sin problemas de spam
    - **Recomendación:** Implementar:
      - Sistema de calentamiento de emails
@@ -274,7 +274,7 @@ Este documento analiza las capacidades de tres competidores principales en el me
    - **Instantly.ai:** ✅ Sí (millones de leads)
    - **Smartlead.ai:** ❌ No
    - **Saleshandy:** ❌ No
-   - **Sendler.ai:** ❌ No
+   - **Sendlr.ai:** ❌ No
    - **Impacto:** Medio - Los usuarios deben importar sus propios leads
    - **Recomendación:** Considerar integración con bases de datos de leads (Apollo, ZoomInfo, etc.)
 
@@ -282,13 +282,13 @@ Este documento analiza las capacidades de tres competidores principales en el me
    - **Instantly.ai:** ✅ Sí (mencionado en features)
    - **Smartlead.ai:** ✅ Sí (Multi-Channel)
    - **Saleshandy:** ❌ No
-   - **Sendler.ai:** ❌ No
+   - **Sendlr.ai:** ❌ No
    - **Impacto:** Medio - Canal adicional para outreach
    - **Recomendación:** Integrar con servicios de SMS (Twilio, etc.)
 
 #### 5. **❌ Unified Inbox** (BAJA PRIORIDAD)
    - **Smartlead.ai:** ✅ Sí (Bandeja unificada)
-   - **Sendler.ai:** ❌ No (usa Gmail nativo)
+   - **Sendlr.ai:** ❌ No (usa Gmail nativo)
    - **Impacto:** Bajo - Gmail nativo funciona bien
    - **Recomendación:** Considerar para futuro, no urgente
 
@@ -296,7 +296,7 @@ Este documento analiza las capacidades de tres competidores principales en el me
    - **Instantly.ai:** ✅ Sí (AI Copilot)
    - **Smartlead.ai:** ✅ Sí (AI-Powered)
    - **Saleshandy:** ❌ No
-   - **Sendler.ai:** ⚠️ Parcial (planeado)
+   - **Sendlr.ai:** ⚠️ Parcial (planeado)
    - **Impacto:** Alto - Diferencia competitiva importante
    - **Recomendación:** **YA ESTÁ EN ROADMAP** - Implementar usando Gemini API
 
@@ -304,7 +304,7 @@ Este documento analiza las capacidades de tres competidores principales en el me
    - **Instantly.ai:** ✅ Sí
    - **Smartlead.ai:** ✅ Sí
    - **Saleshandy:** ✅ Sí
-   - **Sendler.ai:** ⚠️ Parcial (analytics básicos)
+   - **Sendlr.ai:** ⚠️ Parcial (analytics básicos)
    - **Impacto:** Medio - Los usuarios quieren más insights
    - **Recomendación:** Mejorar dashboard con:
      - Gráficos de tendencias
@@ -313,19 +313,19 @@ Este documento analiza las capacidades de tres competidores principales en el me
 
 #### 8. **❌ Team Collaboration** (BAJA PRIORIDAD)
    - **Saleshandy:** ✅ Sí
-   - **Sendler.ai:** ❌ No
+   - **Sendlr.ai:** ❌ No
    - **Impacto:** Bajo - La mayoría de usuarios son individuales
    - **Recomendación:** Considerar para futuro
 
 #### 9. **❌ Email Verification** (MEDIA PRIORIDAD)
    - **Instantly.ai:** ✅ Sí
-   - **Sendler.ai:** ❌ No
+   - **Sendlr.ai:** ❌ No
    - **Impacto:** Medio - Reduce bounces
    - **Recomendación:** Integrar servicio de verificación de emails
 
 #### 10. **❌ Website Visitor Tracking** (BAJA PRIORIDAD)
    - **Instantly.ai:** ✅ Sí
-   - **Sendler.ai:** ❌ No
+   - **Sendlr.ai:** ❌ No
    - **Impacto:** Bajo - Feature nice-to-have
    - **Recomendación:** Considerar para futuro
 
@@ -376,9 +376,9 @@ Este documento analiza las capacidades de tres competidores principales en el me
 
 ---
 
-## 💡 Diferenciadores Únicos de Sendler.ai
+## 💡 Diferenciadores Únicos de Sendlr.ai
 
-### 🌟 Features que Sendler.ai tiene y los competidores NO:
+### 🌟 Features que Sendlr.ai tiene y los competidores NO:
 
 1. **Detención Inteligente de Secuencias**
    - Detiene automáticamente cuando vendedor responde manualmente
@@ -399,13 +399,13 @@ Este documento analiza las capacidades de tres competidores principales en el me
 
 ## 📈 Conclusión
 
-Sendler.ai tiene una base sólida con features únicos que los competidores no tienen. Las áreas de mejora principales son:
+Sendlr.ai tiene una base sólida con features únicos que los competidores no tienen. Las áreas de mejora principales son:
 
 1. **LinkedIn Integration** - Crítico para competir
 2. **Email Warmup** - Necesario para escalar
 3. **AI Template Generation** - Ya en roadmap, implementar pronto
 
-**Ventaja Competitiva:** Sendler.ai se enfoca en inteligencia y automatización (AI analysis, detención inteligente, conversión de timezones), mientras que los competidores se enfocan más en volumen y canales múltiples.
+**Ventaja Competitiva:** Sendlr.ai se enfoca en inteligencia y automatización (AI analysis, detención inteligente, conversión de timezones), mientras que los competidores se enfocan más en volumen y canales múltiples.
 
 **Recomendación Estratégica:** Mantener el enfoque en inteligencia y automatización, mientras se agregan canales (LinkedIn, SMS) y mejoras de deliverability para competir a escala.
 

@@ -13,13 +13,13 @@ export default function PrivacyPolicy() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">1. Introduction</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Welcome to Sendler.ai ("we," "our," or "us"). Sendler.ai is operated by AGIT S.A. de C.V., 
+              Welcome to Sendlr.ai ("we," "our," or "us"). Sendlr.ai is operated by AGIT S.A. de C.V., 
               a company registered in Mexico. This Privacy Policy explains how we collect, use, disclose, 
               and safeguard your information when you use our software-as-a-service platform for automated 
               outbound sales and email management.
             </p>
             <p className="text-muted-foreground leading-relaxed">
-              By using Sendler.ai, you agree to the collection and use of information in accordance with 
+              By using Sendlr.ai, you agree to the collection and use of information in accordance with 
               this Privacy Policy. If you do not agree with our policies and practices, please do not use 
               our service.
             </p>
@@ -163,7 +163,7 @@ export default function PrivacyPolicy() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">9. Children's Privacy</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Sendler.ai is not intended for individuals under the age of 18. We do not knowingly collect 
+              Sendlr.ai is not intended for individuals under the age of 18. We do not knowingly collect 
               personal information from children. If you believe we have collected information from a 
               child, please contact us immediately.
             </p>
@@ -187,8 +187,8 @@ export default function PrivacyPolicy() {
             </p>
             <div className="bg-muted p-4 rounded-lg space-y-2">
               <p className="font-medium">AGIT S.A. de C.V.</p>
-              <p className="text-muted-foreground">Email: <a href="mailto:privacy@sendler.ai" className="text-primary hover:underline">privacy@sendler.ai</a></p>
-              <p className="text-muted-foreground">Website: <a href="https://sendler.ai" className="text-primary hover:underline">https://sendler.ai</a></p>
+              <p className="text-muted-foreground">Email: <a href="mailto:privacy@sendlr.ai" className="text-primary hover:underline">privacy@sendlr.ai</a></p>
+              <p className="text-muted-foreground">Website: <a href="https://sendlr.ai" className="text-primary hover:underline">https://sendlr.ai</a></p>
             </div>
           </section>
         </div>
