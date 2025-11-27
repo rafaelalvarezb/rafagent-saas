@@ -612,10 +612,10 @@ export default function Prospects() {
       if (lowerHeader.includes('first name') || lowerHeader.includes('firstname') || 
           lowerHeader === 'first name' || lowerHeader === 'firstname') {
         mapping[header] = 'contactName';
-      } else if (lowerHeader.includes('name') && !lowerHeader.includes('company') && !lowerHeader.includes('last')) {
+      } else if (lowerHeader.includes('name') && !lowerHeader.includes('company') && !lowerHeader.includes('last') && !lowerHeader.includes('email')) {
         // If it's just "name" or "contact name", also map to contactName
         mapping[header] = 'contactName';
-      } else if (lowerHeader.includes('email') || lowerHeader.includes('e-mail')) {
+      } else if (lowerHeader.includes('email') || lowerHeader.includes('e-mail') || lowerHeader.includes('email adress')) {
         mapping[header] = 'contactEmail';
       } else if (lowerHeader.includes('job title') || lowerHeader.includes('jobtitle') || 
                  lowerHeader.includes('title') || lowerHeader.includes('position')) {
@@ -1650,18 +1650,8 @@ export default function Prospects() {
                   </div>
                   <Button
                     onClick={() => {
-                      // TODO: Replace with your actual Google Sheets template link
-                      // Get the link from: https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit?usp=sharing&copy=true
-                      const sheetUrl = 'https://docs.google.com/spreadsheets/d/1YOUR_SHEET_ID/edit?usp=sharing&copy=true';
-                      if (sheetUrl.includes('YOUR_SHEET_ID')) {
-                        toast({
-                          title: "Template Not Configured",
-                          description: "Please configure the Google Sheets template link. See GUIA_GOOGLE_SHEETS_TEMPLATE.md for instructions.",
-                          variant: "default",
-                        });
-                      } else {
-                        window.open(sheetUrl, '_blank', 'noopener,noreferrer');
-                      }
+                      const sheetUrl = 'https://docs.google.com/spreadsheets/d/1htZVPsxPtEktUM07oZmJZAqKkRxQblcfq50roA7-dhg/edit?usp=sharing&copy=true';
+                      window.open(sheetUrl, '_blank', 'noopener,noreferrer');
                     }}
                     variant="outline"
                     size="lg"
