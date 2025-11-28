@@ -1671,11 +1671,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = getCurrentUserId(req)!;
       
       // First, sync user's main mailbox if they have OAuth tokens
-      await syncUserMainMailbox(userId);
+      try {
+        const syncedMailbox = await syncUserMainMailbox(userId);
+        if (syncedMailbox) {
+          console.log(`✅ Synced main mailbox for user ${userId}: ${syncedMailbox.email}`);
+        } else {
+          console.log(`⚠️  Could not sync main mailbox for user ${userId} (no OAuth tokens or email)`);
+        }
+      } catch (syncError: any) {
+        console.error('Error syncing main mailbox:', syncError);
+        // Don't fail the request if sync fails, just log it
+      }
       
       const mailboxes = await storage.getMailboxesByUser(userId);
+      console.log(`📬 Found ${mailboxes.length} mailboxes for user ${userId}`);
       res.json(mailboxes);
     } catch (error: any) {
+      console.error('Error getting mailboxes:', error);
       res.status(500).json({ error: error.message });
     }
   });
