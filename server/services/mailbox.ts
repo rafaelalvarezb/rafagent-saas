@@ -122,3 +122,49 @@ export async function canMailboxSendEmail(mailboxId: string): Promise<boolean> {
   return emailsSent < dailyLimit;
 }
 
+/**
+ * Sync user's main mailbox from their OAuth tokens
+ * Creates a mailbox if user has OAuth tokens but no mailbox exists
+ */
+export async function syncUserMainMailbox(userId: string): Promise<Mailbox | null> {
+  const user = await storage.getUser(userId);
+  if (!user || !user.googleAccessToken || !user.email) {
+    return null;
+  }
+
+  // Import storage here to avoid circular dependency
+  const { storage: storageInstance } = await import('../storage');
+
+  // Check if mailbox already exists for this email
+  const existingMailboxes = await storageInstance.getMailboxesByUser(userId);
+  const existingMailbox = existingMailboxes.find(m => m.email === user.email);
+  
+  if (existingMailbox) {
+    // Update existing mailbox with current tokens
+    return await storageInstance.updateMailbox(existingMailbox.id, {
+      googleAccessToken: user.googleAccessToken,
+      googleRefreshToken: user.googleRefreshToken || undefined,
+      googleTokenExpiry: user.googleTokenExpiry || undefined,
+      isActive: true
+    }) || existingMailbox;
+  }
+
+  // Create new mailbox from user's OAuth tokens
+  const mailbox: InsertMailbox = {
+    userId,
+    email: user.email,
+    displayName: user.name || undefined,
+    googleAccessToken: user.googleAccessToken,
+    googleRefreshToken: user.googleRefreshToken || undefined,
+    googleTokenExpiry: user.googleTokenExpiry || undefined,
+    isActive: true,
+    dailySendLimit: 25,
+    emailsSentToday: 0,
+    warmupStatus: 'not_started',
+    warmupCurrentDay: 0,
+    reputationScore: 0
+  };
+
+  return await storageInstance.createMailbox(mailbox);
+}
+

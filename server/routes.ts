@@ -7,7 +7,7 @@ import { sendEmail, getThreadMessages, getMessageBody } from "./services/gmail";
 import { classifyResponse, replaceTemplateVariables } from "./services/ai";
 import { getAvailableSlots, findNextAvailableSlot, scheduleMeeting } from "./services/calendar";
 import { getAuthUrl, getTokensFromCode, getUserInfo } from "./auth";
-import { getMailboxAuthUrl, createMailboxFromOAuth } from "./services/mailbox";
+import { getMailboxAuthUrl, createMailboxFromOAuth, syncUserMainMailbox } from "./services/mailbox";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { runAgent } from "./automation/agent";
 import { createDefaultTemplates, createDefaultUserConfig } from "./automation/defaultTemplates";
@@ -135,6 +135,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         googleRefreshToken: tokens.refresh_token,
         googleTokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined
       });
+
+      // Sync user's main mailbox (create if doesn't exist)
+      try {
+        const { syncUserMainMailbox } = await import("./services/mailbox");
+        await syncUserMainMailbox(user.id);
+      } catch (error) {
+        console.error('Error syncing user main mailbox:', error);
+        // Don't fail login if mailbox sync fails
+      }
 
       // Create session
       req.session.userId = user.id;
@@ -1660,6 +1669,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/mailboxes", requireAuth, async (req, res) => {
     try {
       const userId = getCurrentUserId(req)!;
+      
+      // First, sync user's main mailbox if they have OAuth tokens
+      await syncUserMainMailbox(userId);
+      
       const mailboxes = await storage.getMailboxesByUser(userId);
       res.json(mailboxes);
     } catch (error: any) {
@@ -1739,6 +1752,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.deleteMailbox(mailboxId);
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Sync user's main mailbox (for users who already have OAuth tokens)
+  app.post("/api/mailboxes/sync", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req)!;
+      const mailbox = await syncUserMainMailbox(userId);
+      
+      if (!mailbox) {
+        return res.status(400).json({ error: "No OAuth tokens found. Please login again." });
+      }
+      
+      res.json({ success: true, mailbox });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
