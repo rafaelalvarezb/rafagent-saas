@@ -7,11 +7,7 @@ let io: Server | null = null;
 export function initializeWebSocket(httpServer: HTTPServer): Server {
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: [
-        process.env.CLIENT_URL || "http://localhost:5173",
-        "https://rafagent-saas.vercel.app",
-        "https://rafagent-saas-git-main-rafael-alvarezs-projects-43d604b9.vercel.app"
-      ],
+      origin: process.env.CLIENT_URL || "http://localhost:5173",
       credentials: true,
     },
   });

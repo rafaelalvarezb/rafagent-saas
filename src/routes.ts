@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import jwt from 'jsonwebtoken';
 import { storage } from "./storage";
 import { insertProspectSchema, insertTemplateSchema, insertUserConfigSchema, insertActivityLogSchema, insertSequenceSchema } from "@shared/schema";
 import { sendEmail, getThreadMessages, getMessageBody } from "./services/gmail";
@@ -7,12 +8,25 @@ import { classifyResponse, replaceTemplateVariables } from "./services/ai";
 import { getAvailableSlots, findNextAvailableSlot, scheduleMeeting } from "./services/calendar";
 import { getAuthUrl, getTokensFromCode, getUserInfo } from "./auth";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
-import { generateToken, authenticateJWT, optionalAuth } from "./middleware/jwt";
 import { runAgent } from "./automation/agent";
 import { createDefaultTemplates, createDefaultUserConfig } from "./automation/defaultTemplates";
 import { isWithinWorkingHours, getWorkingHoursFromConfig, debugWorkingHours } from "./utils/workingHours";
+import { SERVER_CONFIG } from "./config";
+import { redirectToEngine } from "./utils/engineRedirect";
 import { ensureCurrentUserDefaults } from "./utils/ensureDefaults";
-import { emitProspectStatusChange, emitProspectUpdate, initializeWebSocket } from "./services/websocket";
+import { detectUserTimezone } from "./utils/timezoneDetection";
+
+/**
+ * Generate JWT token for user
+ */
+function generateToken(userId: string, userEmail: string): string {
+  const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'dev-secret-change-in-production';
+  return jwt.sign(
+    { userId, userEmail },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+}
 
 /**
  * Get template name for touchpoint number
@@ -25,10 +39,25 @@ function getTemplateNameForTouchpoint(touchpointNumber: number): string {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
-  // ===== HEALTH CHECK =====
-  app.get("/api/health", (req, res) => {
-    res.json({ 
-      status: "ok", 
+  // ===== ROOT ROUTE =====
+  // Redirect root requests to frontend (if in production)
+  app.get("/", (_req, res) => {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    if (process.env.NODE_ENV === 'production') {
+      res.redirect(frontendUrl);
+    } else {
+      res.json({
+        message: "RafAgent Backend API",
+        status: "running",
+        version: "1.0.0"
+      });
+    }
+  });
+
+  // Health check endpoint
+  app.get("/health", (_req, res) => {
+    res.json({
+      status: "ok",
       timestamp: new Date().toISOString(),
       websocket: "enabled"
     });
@@ -77,10 +106,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let isNewUser = false;
       
       if (!user) {
+        // Use default timezone for new users (they can change it in settings)
+        const defaultTimezone = 'America/Mexico_City';
+        console.log(`🌍 Using default timezone for new user: ${defaultTimezone}`);
+        
         user = await storage.createUser({
           email: userInfo.email,
           name: userInfo.name || userInfo.email,
-          timezone: 'America/Mexico_City'
+          timezone: defaultTimezone
         });
         isNewUser = true;
       }
@@ -92,9 +125,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         googleTokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined
       });
 
+      // Create session
+      req.session.userId = user.id;
+      req.session.userEmail = user.email;
+
       // If new user, create default templates and config
       if (isNewUser) {
         try {
+          // Try to detect timezone from request headers (browser sends it)
+          // Note: We'll detect it on frontend and send via separate API call after login
+          // For now, use a default and let frontend update it
           await createDefaultTemplates(user.id);
           await createDefaultUserConfig(user.id);
           console.log(`Setup completed for new user: ${user.email}`);
@@ -103,12 +143,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Generate JWT token
+      // Generate JWT token for frontend
       const token = generateToken(user.id, user.email);
-        
-      // Redirect to frontend with token as query parameter
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-      console.log(`✅ Authentication successful for ${user.email}, redirecting to ${frontendUrl}/dashboard`);
+      
+      // Redirect to frontend with token
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       res.redirect(`${frontendUrl}/dashboard?token=${token}`);
     } catch (error: any) {
       console.error('OAuth callback error:', error);
@@ -116,41 +155,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/auth/status", optionalAuth, async (req, res) => {
-    const user = (req as any).user;
+  app.get("/api/auth/status", async (req, res) => {
+    // Check for JWT token first (from URL parameter)
+    const authHeader = req.headers.authorization;
+    let token: string | undefined;
     
-    if (!user) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+    
+    // If no JWT token, check session
+    if (!token && !req.session.userId) {
       return res.json({ authenticated: false });
     }
 
     try {
-      const userData = await storage.getUser(user.id);
-      if (!userData) {
+      let user;
+      
+      // If JWT token provided, verify it
+      if (token) {
+        const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'dev-secret-change-in-production';
+        try {
+          const payload = jwt.verify(token, JWT_SECRET) as { userId: string; userEmail: string };
+          user = await storage.getUser(payload.userId);
+          if (!user) {
+            return res.json({ authenticated: false });
+          }
+        } catch (error) {
+          // Invalid token, try session
+          if (!req.session.userId) {
+            return res.json({ authenticated: false });
+          }
+        }
+      }
+      
+      // Fallback to session if no JWT or JWT failed
+      if (!user) {
+        if (!req.session.userId) {
+          return res.json({ authenticated: false });
+        }
+        user = await storage.getUser(req.session.userId);
+      if (!user) {
+        req.session.destroy(() => {});
         return res.json({ authenticated: false });
+        }
       }
 
-      // Always ensure user has default sequences and config
-      try {
-        await ensureCurrentUserDefaults(userData.id);
-        
-        // Also create default sequences if none exist
-        const sequences = await storage.getSequencesByUser(userData.id);
-        if (sequences.length === 0) {
-          console.log(`No sequences found for user ${userData.email}, creating defaults...`);
-          await createDefaultTemplates(userData.id);
-          await createDefaultUserConfig(userData.id);
-        }
-      } catch (error) {
-        console.error('Error ensuring defaults for user:', error);
-      }
+      // Ensure user has default sequences and config
+      await ensureCurrentUserDefaults(user.id);
 
       res.json({
         authenticated: true,
         user: {
-          id: userData.id,
-          email: userData.email,
-          name: userData.name,
-          timezone: userData.timezone
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          timezone: user.timezone
         }
       });
     } catch (error) {
@@ -159,9 +219,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/logout", (req, res) => {
-    // With JWT, logout is handled on the client side by removing the token
-    // No server-side session to destroy
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to logout' });
+      }
       res.json({ success: true });
+    });
   });
 
   // ===== PROSPECTS =====
@@ -271,7 +334,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   user.id,
                   undefined,
                   undefined,
-                  prospect.id // Add prospectId for pixel tracking
+                  prospect.id, // Add prospectId for pixel tracking
+                  user.name || '' // Sender name for "From" header
                 );
 
                 await storage.updateProspect(prospect.id, {
@@ -280,10 +344,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   touchpointsSent: 1,
                   lastContactDate: new Date()
                 });
-
-                // Emit WebSocket update for status change
-                emitProspectStatusChange(userId, prospect.id, 'following_up');
-                emitProspectUpdate(userId, prospect);
 
                 await storage.createActivityLog({
                   userId,
@@ -343,19 +403,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // If editing prospect fields (not just sendSequence toggle), validate that no emails have been sent
+      const isEditingProspectFields = req.body.contactName !== undefined || 
+                                     req.body.contactEmail !== undefined || 
+                                     req.body.contactTitle !== undefined || 
+                                     req.body.companyName !== undefined || 
+                                     req.body.industry !== undefined;
+      
+      if (isEditingProspectFields) {
+        // Only allow editing if no touchpoints have been sent
+        if (existing.touchpointsSent && existing.touchpointsSent > 0) {
+          return res.status(400).json({ 
+            error: "Cannot edit prospect: Email has already been sent. You can only edit prospects before the first email is sent." 
+          });
+        }
+        
+        // Filter to only allow editing these specific fields
+        const editableFields = {
+          contactName: req.body.contactName,
+          contactEmail: req.body.contactEmail,
+          contactTitle: req.body.contactTitle,
+          companyName: req.body.companyName,
+          industry: req.body.industry,
+        };
+        
+        // Remove undefined fields
+        Object.keys(editableFields).forEach(key => {
+          if (editableFields[key as keyof typeof editableFields] === undefined) {
+            delete editableFields[key as keyof typeof editableFields];
+          }
+        });
+        
+        // Validate required fields
+        if (editableFields.contactName !== undefined && !editableFields.contactName.trim()) {
+          return res.status(400).json({ error: "Contact name is required" });
+        }
+        if (editableFields.contactEmail !== undefined && !editableFields.contactEmail.trim()) {
+          return res.status(400).json({ error: "Contact email is required" });
+        }
+        
+        // Merge editable fields with any other allowed updates (like sendSequence changes)
+        req.body = {
+          ...editableFields,
+          ...(req.body.sendSequence !== undefined && { sendSequence: req.body.sendSequence }),
+          ...(req.body.status && { status: req.body.status }),
+        };
+      }
+      
       // Convert lastContactDate string to Date object if provided
       if (req.body.lastContactDate && typeof req.body.lastContactDate === 'string') {
         req.body.lastContactDate = new Date(req.body.lastContactDate);
       }
       
       const prospect = await storage.updateProspect(req.params.id, req.body);
-      
-      // Emit WebSocket update for status changes
-      if (req.body.status) {
-        emitProspectStatusChange(userId, prospect.id, req.body.status);
-      }
-      emitProspectUpdate(userId, prospect);
-      
       res.json(prospect);
     } catch (error: any) {
       console.error('Error updating prospect:', error);
@@ -384,26 +484,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== TEMPLATES =====
-  app.get("/api/templates", optionalAuth, async (req, res) => {
+  app.get("/api/templates", requireAuth, async (req, res) => {
     try {
-      const user = (req as any).user;
-      if (!user) {
-        return res.json([]);
-      }
-      
-      const userId = user.id;
+      const userId = getCurrentUserId(req)!;
       const templates = await storage.getTemplatesByUser(userId);
-      
-      // Add cache-busting headers
-      res.set({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      });
-      
       res.json(templates);
     } catch (error: any) {
-      console.error('Error fetching templates:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -540,6 +626,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== TIMEZONE MANAGEMENT =====
+  app.get("/api/timezones", async (req, res) => {
+    try {
+      const { getTimezonesByRegion, detectUserTimezone } = await import("./utils/timezoneDetection");
+      const regions = getTimezonesByRegion();
+      const detected = detectUserTimezone();
+      
+      res.json({
+        regions,
+        detected,
+        current: req.query.current as string || detected
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/timezones/detect", async (req, res) => {
+    try {
+      const { detectUserTimezone } = await import("./utils/timezoneDetection");
+      const detected = detectUserTimezone();
+      
+      res.json({ timezone: detected });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Endpoint to set user's timezone (called from frontend after login)
+  app.post("/api/user/timezone", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req)!;
+      const { timezone } = req.body;
+      
+      if (!timezone) {
+        return res.status(400).json({ error: "Timezone is required" });
+      }
+      
+      // Validate timezone
+      const { isValidTimezone } = await import("./utils/timezoneDetection");
+      if (!isValidTimezone(timezone)) {
+        return res.status(400).json({ error: "Invalid timezone" });
+      }
+      
+      // Update user config with detected timezone
+      const config = await storage.getUserConfig(userId);
+      if (config) {
+      await storage.updateUserConfig(userId, { timezone });
+        console.log(`✅ Updated timezone for user ${userId} to ${timezone}`);
+      } else {
+        // Create config with detected timezone
+        await storage.createUserConfig({ userId, timezone });
+        console.log(`✅ Created config for user ${userId} with timezone ${timezone}`);
+      }
+      
+      res.json({ success: true, timezone });
+    } catch (error: any) {
+      console.error('Error setting user timezone:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+
+  // ===== NOTIFICATIONS =====
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req)!;
+      
+      // Get all prospects with recent activity (last 30 days)
+      const prospects = await storage.getProspectsByUser(userId);
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const notifications: Array<{
+        id: string;
+        type: 'email_opened' | 'replied' | 'meeting_scheduled';
+        prospectName: string;
+        prospectEmail: string;
+        companyName: string | null;
+        contactTitle: string | null;
+        timestamp: Date;
+        meetingTime?: Date;
+        read: boolean;
+      }> = [];
+      
+      for (const prospect of prospects) {
+        // Email opened notification
+        if (prospect.emailOpened && prospect.emailOpenedAt && prospect.emailOpenedAt >= thirtyDaysAgo) {
+          notifications.push({
+            id: `email_opened_${prospect.id}`,
+            type: 'email_opened',
+            prospectName: prospect.contactName,
+            prospectEmail: prospect.contactEmail,
+            companyName: prospect.companyName,
+            contactTitle: prospect.contactTitle,
+            timestamp: prospect.emailOpenedAt,
+            read: false
+          });
+        }
+        
+        // Replied notification
+        if (prospect.repliedAt && prospect.repliedAt >= thirtyDaysAgo) {
+          notifications.push({
+            id: `replied_${prospect.id}`,
+            type: 'replied',
+            prospectName: prospect.contactName,
+            prospectEmail: prospect.contactEmail,
+            companyName: prospect.companyName,
+            contactTitle: prospect.contactTitle,
+            timestamp: prospect.repliedAt,
+            read: false
+          });
+        }
+        
+        // Meeting scheduled notification
+        if (prospect.meetingTime && prospect.meetingTime >= thirtyDaysAgo) {
+          notifications.push({
+            id: `meeting_${prospect.id}`,
+            type: 'meeting_scheduled',
+            prospectName: prospect.contactName,
+            prospectEmail: prospect.contactEmail,
+            companyName: prospect.companyName,
+            contactTitle: prospect.contactTitle,
+            timestamp: prospect.updatedAt || prospect.createdAt,
+            meetingTime: prospect.meetingTime,
+            read: false
+          });
+        }
+      }
+      
+      // Sort by timestamp (most recent first)
+      notifications.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      
+      res.json(notifications);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== ACTIVITY LOGS =====
   app.get("/api/activities", requireAuth, async (req, res) => {
     try {
@@ -626,7 +851,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subject,
         htmlBody,
         undefined,
-        user.googleRefreshToken || undefined
+        user.googleRefreshToken || undefined,
+        user.id,
+        undefined,
+        undefined,
+        prospect.id, // prospectId for pixel tracking
+        user.name || '' // Sender name for "From" header
       );
 
       const threadLink = `https://mail.google.com/mail/u/0/#thread/${result.threadId}`;
@@ -662,13 +892,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/prospects/:id/send-followup", async (req, res) => {
+  app.post("/api/prospects/:id/send-followup", requireAuth, async (req, res) => {
     try {
-      const userId = "temp-user-id";
+      const userId = getCurrentUserId(req)!;
       const prospect = await storage.getProspect(req.params.id);
       
       if (!prospect) {
         return res.status(404).json({ error: "Prospect not found" });
+      }
+
+      if (prospect.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
       }
 
       if (!prospect.threadId) {
@@ -687,6 +921,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const user = await storage.getUser(userId);
+      if (!user?.googleAccessToken) {
+        return res.status(400).json({ error: "Google account not connected" });
+      }
+
       const body = replaceTemplateVariables(template.body, {
         externalCid: prospect.externalCid || '',
         contactName: prospect.contactName,
@@ -706,7 +944,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const htmlBody = body.replace(/\n/g, '<br>');
-      await sendEmail(prospect.contactEmail, subject, htmlBody, prospect.threadId);
+      await sendEmail(
+        user.googleAccessToken,
+        prospect.contactEmail,
+        subject,
+        htmlBody,
+        prospect.threadId,
+        user.googleRefreshToken,
+        userId,
+        undefined,
+        undefined,
+        prospect.id, // prospectId for pixel tracking
+        user.name || '' // Sender name for "From" header
+      );
 
       await storage.updateProspect(prospect.id, {
         status: 'Following up',
@@ -733,18 +983,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/prospects/:id/analyze-response", async (req, res) => {
+  app.post("/api/prospects/:id/analyze-response", requireAuth, async (req, res) => {
     try {
-      const userId = "temp-user-id";
+      const userId = getCurrentUserId(req)!;
       const prospect = await storage.getProspect(req.params.id);
       
-      if (!prospect || !prospect.threadId) {
-        return res.status(404).json({ error: "Prospect or thread not found" });
+      if (!prospect) {
+        return res.status(404).json({ error: "Prospect not found" });
+      }
+
+      if (prospect.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (!prospect.threadId) {
+        return res.status(400).json({ error: "No thread ID found" });
       }
 
       await storage.updateProspect(prospect.id, { status: '🧐 Analyzing response...' });
 
-      const messages = await getThreadMessages(prospect.threadId);
+      const user = await storage.getUser(userId);
+      if (!user?.googleAccessToken) {
+        return res.status(400).json({ error: "Google account not connected" });
+      }
+
+      const messages = await getThreadMessages(user.googleAccessToken, prospect.threadId, user.googleRefreshToken, userId);
       if (messages.length === 0) {
         throw new Error("No messages found in thread");
       }
@@ -820,13 +1083,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/prospects/:id/schedule-meeting", async (req, res) => {
+  app.post("/api/prospects/:id/schedule-meeting", requireAuth, async (req, res) => {
     try {
-      const userId = "temp-user-id";
+      const userId = getCurrentUserId(req)!;
       const prospect = await storage.getProspect(req.params.id);
       
       if (!prospect) {
         return res.status(404).json({ error: "Prospect not found" });
+      }
+
+      if (prospect.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
       }
 
       await storage.updateProspect(prospect.id, { status: '🤖 Creating event...' });
@@ -839,7 +1106,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const workStartHour = parseInt(config.searchStartTime?.split(':')[0] || '9');
-      const workEndHour = parseInt(config.searchEndTime?.split(':')[0] || '17');
+      const workEndHour = parseInt(config.searchEndTime?.split(':')[0] || '23');
+      
+      console.log(`🔧 User config - Start: ${config.searchStartTime}, End: ${config.searchEndTime}`);
+      console.log(`🕐 Parsed hours - Start: ${workStartHour}, End: ${workEndHour}`);
 
       let searchStartDate = new Date();
       searchStartDate.setHours(searchStartDate.getHours() + 24);
@@ -854,26 +1124,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const searchEndDate = new Date(searchStartDate);
       searchEndDate.setDate(searchEndDate.getDate() + 30);
+      
+      console.log(`📅 Search period: ${searchStartDate.toISOString()} to ${searchEndDate.toISOString()}`);
+      console.log(`📅 Search period (user timezone): ${searchStartDate.toLocaleString("en-US", { timeZone: user?.timezone || 'America/Mexico_City' })} to ${searchEndDate.toLocaleString("en-US", { timeZone: user?.timezone || 'America/Mexico_City' })}`);
+
+      // Use user's configured timezone from config (user can change this in settings)
+      const userTimezone = config.timezone || user?.timezone || 'America/Mexico_City';
+      console.log(`🌍 Using configured user timezone: ${userTimezone}`);
+      console.log(`⏰ Working hours: ${workStartHour}:00 - ${workEndHour}:00 (${userTimezone})`);
 
       const availableSlots = await getAvailableSlots(
+        user?.googleAccessToken || '',
         searchStartDate,
         searchEndDate,
         workStartHour,
         workEndHour,
-        user?.timezone || 'America/Mexico_City'
+        userTimezone,
+        user?.googleRefreshToken,
+        config.workingDays?.split(',')
       );
 
       const preferredDays = prospect.suggestedDays?.split(',').map(d => d.trim());
+      console.log(`🎯 Prospect preferences - Days: ${preferredDays}, Time: ${prospect.suggestedTime}, Week: ${prospect.suggestedWeek}`);
+      console.log(`📊 Available slots count: ${availableSlots.length}`);
+      
       const selectedSlot = findNextAvailableSlot(
         availableSlots,
         preferredDays,
         prospect.suggestedTime || undefined,
-        prospect.suggestedWeek || undefined
+        prospect.suggestedWeek || undefined,
+        userTimezone
       );
 
       if (!selectedSlot) {
         throw new Error("No available slots found in the configured time range");
       }
+      
+      console.log(`✅ Selected slot: ${selectedSlot.toISOString()}`);
+      console.log(`✅ Selected slot (user timezone): ${selectedSlot.toLocaleString("en-US", { timeZone: user?.timezone || 'America/Mexico_City' })}`);
 
       const endTime = new Date(selectedSlot.getTime() + 30 * 60000);
 
@@ -909,7 +1197,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         title: title || `${prospect.companyName || 'Meeting'} & Google`,
         description: description || '',
         startTime: selectedSlot,
-        endTime: endTime
+        endTime: endTime,
+        accessToken: user?.googleAccessToken || '',
+        refreshToken: user?.googleRefreshToken,
+        userTimezone: userTimezone
       });
 
       await storage.updateProspect(prospect.id, {
@@ -961,6 +1252,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/agent/run", requireAuth, async (req, res) => {
     try {
       const userId = getCurrentUserId(req)!;
+      
+      // In hybrid mode, redirect to persistent engine
+      if (SERVER_CONFIG.IS_HYBRID_MODE) {
+        const response = await redirectToEngine(`/api/agent/run/${userId}`, {
+          method: 'POST'
+        });
+        const result = await response.json();
+        return res.json(result);
+      }
+      
+      // Fallback to local agent (development mode)
       const result = await runAgent(userId);
       res.json(result);
     } catch (error: any) {
@@ -968,69 +1270,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== ENGINE STATUS ENDPOINTS =====
-  app.get("/api/engine/status", async (req, res) => {
+  // ===== ADMIN ENDPOINTS =====
+  // Get all users (admin only)
+  app.get("/api/admin/users", requireAuth, async (req, res) => {
     try {
-      const users = await storage.getAllUsers();
-      const activeUsers = users.filter(u => u.googleAccessToken);
+      // Get current user to check if admin
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       
-      res.json({
-        status: "running",
-        activeUsers: activeUsers.length,
-        totalUsers: users.length,
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString()
-      });
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      // Only admin can see all users
+      const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'rafaelalvrzb@gmail.com';
+      if (user.email !== ADMIN_EMAIL) {
+        return res.status(403).json({ error: 'Forbidden: Admin access required' });
+      }
+
+      // Get all users
+      const allUsers = await storage.getAllUsers();
+      
+      // Get activity data for each user (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const usersWithActivity = await Promise.all(allUsers.map(async (u) => {
+        try {
+          const prospects = await storage.getProspectsByUser(u.id);
+          const recentProspects = prospects.filter(p => {
+            const createdAt = new Date(p.createdAt);
+            return createdAt >= thirtyDaysAgo;
+          });
+          
+          return {
+            id: u.id,
+            email: u.email,
+            name: u.name,
+            timezone: u.timezone,
+            createdAt: u.createdAt,
+            totalProspects: prospects.length,
+            recentProspects: recentProspects.length,
+            isActive: recentProspects.length > 0
+          };
+        } catch (error) {
+          console.error(`Error getting prospects for user ${u.id}:`, error);
+          return {
+            id: u.id,
+            email: u.email,
+            name: u.name,
+            timezone: u.timezone,
+            createdAt: u.createdAt,
+            totalProspects: 0,
+            recentProspects: 0,
+            isActive: false
+          };
+        }
+      }));
+      
+      res.json(usersWithActivity);
     } catch (error: any) {
+      console.error('Error getting users:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.get("/api/engine/health", async (req, res) => {
-    res.json({
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      service: 'rafagent-engine'
-    });
+  // ===== ENGINE STATUS ENDPOINTS =====
+  app.get("/api/engine/status", requireAuth, async (req, res) => {
+    try {
+      // Get current user to check if admin
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      // Only admin can see engine status (admin email: rafaelalvrzb@gmail.com)
+      const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'rafaelalvrzb@gmail.com';
+      if (user.email !== ADMIN_EMAIL) {
+        return res.status(403).json({ error: 'Forbidden: Admin access required' });
+      }
+
+      // Get engine status with real data
+      const uptimeSeconds = Math.floor(process.uptime());
+      const allUsers = await storage.getAllUsers();
+      const totalUsers = allUsers.length;
+      
+      // Count active users (users with prospects created in last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const activeUserIds = new Set<string>();
+      for (const user of allUsers) {
+        try {
+          const prospects = await storage.getProspectsByUser(user.id);
+          const hasRecentActivity = prospects.some(prospect => {
+            const createdAt = new Date(prospect.createdAt);
+            return createdAt >= thirtyDaysAgo;
+          });
+          if (hasRecentActivity) {
+            activeUserIds.add(user.id);
+          }
+        } catch (err) {
+          // If error, skip this user
+          console.error(`Error getting prospects for user ${user.id}:`, err);
+      }
+      }
+      
+      const activeUsers = activeUserIds.size || totalUsers; // Fallback to total if no recent activity
+
+      res.json({
+        status: 'running',
+        activeUsers: activeUsers,
+        totalUsers: totalUsers,
+        uptime: uptimeSeconds,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('Error getting engine status:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/engine/health", requireAuth, async (req, res) => {
+    try {
+      // Get current user to check if admin
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+      
+      // Only admin can see engine health
+      const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'rafaelalvrzb@gmail.com';
+      if (user.email !== ADMIN_EMAIL) {
+        return res.status(403).json({ error: 'Forbidden: Admin access required' });
+      }
+
+      res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        service: 'rafagent-engine'
+      });
+    } catch (error: any) {
+      console.error('Error getting engine health:', error);
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // ===== SEQUENCES =====
-  app.get("/api/sequences", optionalAuth, async (req, res) => {
+  app.get("/api/sequences", requireAuth, async (req, res) => {
     try {
-      const user = (req as any).user;
-      if (!user) {
-        return res.json([]);
-      }
-      
-      const userId = user.id;
-      let sequences = await storage.getSequencesByUser(userId);
-      
-      // Always ensure user has at least one sequence
-      if (sequences.length === 0) {
-        console.log(`No sequences found for user ${user.email}, creating defaults...`);
-        try {
-          await createDefaultTemplates(userId);
-          await createDefaultUserConfig(userId);
-          
-          // Fetch sequences again after creating defaults
-          sequences = await storage.getSequencesByUser(userId);
-          console.log(`Created ${sequences.length} sequences for user ${user.email}`);
-        } catch (error) {
-          console.error('Error creating default sequences:', error);
-          return res.json([]);
-        }
-      }
-      
-      // Add cache-busting headers
-      res.set({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      });
-      
+      const userId = getCurrentUserId(req)!;
+      const sequences = await storage.getSequencesByUser(userId);
       res.json(sequences);
     } catch (error: any) {
-      console.error('Error fetching sequences:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -1143,14 +1548,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/pixel/:prospectId", async (req, res) => {
     try {
       const { prospectId } = req.params;
+      console.log(`🔍 Pixel tracking hit for prospect: ${prospectId}`);
+      
       const prospect = await storage.getProspect(prospectId);
       
-      if (prospect && !prospect.emailOpened) {
+      if (prospect) {
+        console.log(`📧 Found prospect: ${prospect.contactEmail}, emailOpened: ${prospect.emailOpened}`);
+        
+        if (!prospect.emailOpened) {
         await storage.updateProspect(prospectId, {
           emailOpened: true,
           emailOpenedAt: new Date()
         });
-        console.log(`Email opened by prospect: ${prospect.contactEmail}`);
+          console.log(`✅ Email opened by prospect: ${prospect.contactEmail} at ${new Date().toISOString()}`);
+        } else {
+          console.log(`ℹ️ Email already marked as opened for: ${prospect.contactEmail}`);
+        }
+      } else {
+        console.log(`❌ Prospect not found: ${prospectId}`);
       }
       
       // Return 1x1 transparent pixel
@@ -1166,7 +1581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.end(pixel);
     } catch (error: any) {
-      console.error('Pixel tracking error:', error);
+      console.error('❌ Pixel tracking error:', error);
       // Still return pixel even on error
       const pixel = Buffer.from(
         'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
@@ -1174,108 +1589,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       res.writeHead(200, { 'Content-Type': 'image/gif' });
       res.end(pixel);
-    }
-  });
-
-  // ===== DIAGNOSTIC ENDPOINTS =====
-  app.post("/api/diagnostic/create-defaults", requireAuth, async (req, res) => {
-    try {
-      const userId = getCurrentUserId(req)!;
-      console.log(`Creating default sequences and templates for user ${userId}`);
-      
-      // First, clean up any existing duplicates
-      const sequences = await storage.getSequencesByUser(userId);
-      
-      for (const sequence of sequences) {
-        const templates = await storage.getTemplatesBySequence(sequence.id);
-        
-        // Group templates by templateName
-        const templateGroups = templates.reduce((groups: any, template: any) => {
-          const name = template.templateName;
-          if (!groups[name]) {
-            groups[name] = [];
-          }
-          groups[name].push(template);
-          return groups;
-        }, {});
-        
-        // For each group with duplicates, keep only the first one
-        for (const [templateName, templateList] of Object.entries(templateGroups)) {
-          if ((templateList as any[]).length > 1) {
-            console.log(`Found ${(templateList as any[]).length} duplicates for ${templateName} in sequence ${sequence.name}`);
-            
-            // Sort by createdAt to keep the oldest one
-            (templateList as any[]).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-            
-            // Delete all except the first one
-            for (let i = 1; i < (templateList as any[]).length; i++) {
-              await storage.deleteTemplate((templateList as any[])[i].id);
-              console.log(`Deleted duplicate template ${templateName} #${i + 1}`);
-            }
-          }
-        }
-      }
-      
-      // Create default templates and config
-      await createDefaultTemplates(userId);
-      await createDefaultUserConfig(userId);
-      
-      res.json({ 
-        success: true, 
-        message: 'Default sequences and templates created successfully, duplicates cleaned up' 
-      });
-    } catch (error: any) {
-      console.error('Error creating defaults:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/diagnostic/cleanup-duplicates", requireAuth, async (req, res) => {
-    try {
-      const userId = getCurrentUserId(req)!;
-      console.log(`Cleaning up duplicate templates for user ${userId}`);
-      
-      // Get all sequences for the user
-      const sequences = await storage.getSequencesByUser(userId);
-      
-      for (const sequence of sequences) {
-        // Get all templates for this sequence
-        const templates = await storage.getTemplatesBySequence(sequence.id);
-        
-        // Group templates by templateName
-        const templateGroups = templates.reduce((groups: any, template: any) => {
-          const name = template.templateName;
-          if (!groups[name]) {
-            groups[name] = [];
-          }
-          groups[name].push(template);
-          return groups;
-        }, {});
-        
-        // For each group with duplicates, keep only the first one
-        for (const [templateName, templateList] of Object.entries(templateGroups)) {
-          if ((templateList as any[]).length > 1) {
-            console.log(`Found ${(templateList as any[]).length} duplicates for ${templateName} in sequence ${sequence.name}`);
-            
-            // Sort by createdAt to keep the oldest one
-            (templateList as any[]).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-            
-            // Delete all except the first one
-            for (let i = 1; i < (templateList as any[]).length; i++) {
-              await storage.deleteTemplate((templateList as any[])[i].id);
-              console.log(`Deleted duplicate template ${templateName} #${i + 1}`);
-            }
-          }
-        }
-      }
-      
-      res.json({ 
-        success: true, 
-        message: 'Duplicate templates cleaned up successfully' 
-      });
-    } catch (error: any) {
-      console.error('Error cleaning up duplicates:', error);
-      res.status(500).json({ error: error.message });
     }
   });
 
@@ -1331,80 +1644,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // TEMPORAL: Endpoint para limpiar duplicados sin autenticación
-  app.post("/api/temp/cleanup-duplicates", async (req, res) => {
-    try {
-      console.log("🧹 Iniciando limpieza temporal de templates duplicados...");
-      
-      // Obtener todos los usuarios
-      const users = await storage.getAllUsers();
-      console.log(`👥 Encontrados ${users.length} usuarios`);
-      
-      let totalCleaned = 0;
-      
-      for (const user of users) {
-        console.log(`\n👤 Procesando usuario: ${user.email}`);
-        
-        // Obtener todas las secuencias del usuario
-        const userSequences = await storage.getSequencesByUser(user.id);
-        console.log(`  📋 Secuencias encontradas: ${userSequences.length}`);
-        
-        for (const sequence of userSequences) {
-          console.log(`  🔄 Procesando secuencia: ${sequence.name}`);
-          
-          // Obtener todos los templates de esta secuencia
-          const sequenceTemplates = await storage.getTemplatesBySequence(sequence.id);
-          console.log(`    📝 Templates encontrados: ${sequenceTemplates.length}`);
-          
-          // Agrupar templates por nombre
-          const templateGroups = sequenceTemplates.reduce((groups, template) => {
-            const name = template.templateName;
-            if (!groups[name]) groups[name] = [];
-            groups[name].push(template);
-            return groups;
-          }, {});
-          
-          // Limpiar duplicados
-          for (const [templateName, templateList] of Object.entries(templateGroups)) {
-            if (templateList.length > 1) {
-              console.log(`    ⚠️  Duplicados encontrados para ${templateName}: ${templateList.length} templates`);
-              
-              // Ordenar por fecha de creación (mantener el más antiguo)
-              templateList.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-              
-              // Eliminar todos excepto el primero
-              for (let i = 1; i < templateList.length; i++) {
-                const templateToDelete = templateList[i];
-                console.log(`    🗑️  Eliminando template duplicado: ${templateName} #${i + 1} (ID: ${templateToDelete.id})`);
-                
-                await storage.deleteTemplate(templateToDelete.id);
-                totalCleaned++;
-              }
-              
-              console.log(`    ✅ Limpieza completada para ${templateName}`);
-            }
-          }
-        }
-      }
-      
-      console.log(`\n🎉 Limpieza completada. Total eliminados: ${totalCleaned}`);
-      
-      res.json({ 
-        success: true, 
-        message: `Limpieza completada exitosamente. ${totalCleaned} templates duplicados eliminados.`,
-        totalCleaned
-      });
-    } catch (error: any) {
-      console.error("❌ Error durante la limpieza:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
   const httpServer = createServer(app);
-  
-  // Initialize WebSocket server
-  initializeWebSocket(httpServer);
-  console.log("🔌 WebSocket server initialized");
-  
   return httpServer;
 }

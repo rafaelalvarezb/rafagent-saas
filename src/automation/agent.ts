@@ -11,7 +11,7 @@
 
 import { google } from 'googleapis';
 import { storage } from '../storage';
-import { sendEmail, getThreadMessages, getMessageBody } from '../services/gmail';
+import { sendEmail, getThreadMessages, getMessageBody, cleanEmailForAI } from '../services/gmail';
 import { classifyResponse, replaceTemplateVariables } from '../services/ai';
 import { getAvailableSlots, findNextAvailableSlot, scheduleMeeting } from '../services/calendar';
 import { isWithinWorkingHours, getWorkingHoursFromConfig, debugWorkingHours } from '../utils/workingHours';
@@ -25,6 +25,9 @@ interface ProcessResult {
   responsesAnalyzed: number;
   meetingsScheduled: number;
   errors: string[];
+  outsideWorkingHours?: boolean;
+  noNewResponses?: boolean;
+  message?: string;
 }
 
 /**
@@ -62,6 +65,8 @@ export async function runAgent(userId: string): Promise<ProcessResult> {
 
     if (!isWithinWorkingHours(workingHours)) {
       console.log('Skipping agent run - outside working hours');
+      result.outsideWorkingHours = true;
+      result.message = 'Agent execution is outside your configured working hours. Modify your working hours in Configuration to execute the agent now.';
       return result;
     }
 
@@ -71,6 +76,10 @@ export async function runAgent(userId: string): Promise<ProcessResult> {
 
     const daysBetweenFollowups = config.daysBetweenFollowups || 4;
     const numberOfTouchpoints = config.numberOfTouchpoints || 4;
+    
+    // Track if we checked for responses and found none
+    let checkedForResponses = false;
+    let foundNewResponses = false;
 
     for (const prospect of prospects) {
       result.processed++;
@@ -84,14 +93,6 @@ export async function runAgent(userId: string): Promise<ProcessResult> {
         // Case 1: No emails sent yet - send initial
         if (!prospect.touchpointsSent || prospect.touchpointsSent === 0) {
           console.log(`   ✅ Sending INITIAL email (no touchpoints sent yet)`);
-          await sendInitialEmail(user, prospect);
-          result.emailsSent++;
-          continue;
-        }
-
-        // Case 1.5: Prospect is waiting for working hours - check if we should send now
-        if (prospect.status === 'waiting_working_hours' || prospect.status === 'WAITING FOR WORKING HOURS') {
-          console.log(`   ✅ Sending INITIAL email (was waiting for working hours, now within hours)`);
           await sendInitialEmail(user, prospect);
           result.emailsSent++;
           continue;
@@ -117,13 +118,32 @@ export async function runAgent(userId: string): Promise<ProcessResult> {
 
         // Case 3: Check for new responses to analyze (check even if sequence finished or not interested)
         if (prospect.threadId && !prospect.status?.includes('Meeting Scheduled')) {
-          const hasNewResponse = await checkForNewResponse(user, prospect);
+          checkedForResponses = true;
+          const responseCheck = await checkForNewResponse(user, prospect);
           
-          if (hasNewResponse) {
+          // If user replied manually, stop the sequence
+          if (responseCheck.isManualReply) {
+            console.log(`   🛑 Manual reply detected - stopping sequence for ${prospect.contactEmail}`);
+            await storage.updateProspect(prospect.id, {
+              status: '🛑 Sequence Ended - Manual Reply',
+              sendSequence: false
+            });
+            emitProspectStatusChange(userId, prospect.id, '🛑 Sequence Ended - Manual Reply');
+            await storage.createActivityLog({
+              userId: user.id,
+              prospectId: prospect.id,
+              action: 'Sequence Stopped (Manual Reply)',
+              detail: 'Sequence stopped because user replied manually to this prospect'
+            });
+            continue;
+          }
+          
+          if (responseCheck.hasNewResponse) {
+            foundNewResponses = true;
             const wasInterested = await analyzeProspectResponse(user, prospect);
             result.responsesAnalyzed++;
             
-            // If interested, schedule meeting immediately
+            // If interested, schedule meeting immediately and stop sequences for same company
             if (wasInterested) {
               // Refresh prospect data from database to get updated suggestedDays/suggestedTime
               const updatedProspect = await storage.getProspect(prospect.id);
@@ -135,6 +155,11 @@ export async function runAgent(userId: string): Promise<ProcessResult> {
                 
                 await scheduleProspectMeeting(user, updatedProspect, config, sequence);
                 result.meetingsScheduled++;
+                
+                // Stop sequences for other prospects from the same company
+                if (updatedProspect.companyName) {
+                  await stopSequencesForSameCompany(user.id, updatedProspect.companyName, updatedProspect.id);
+                }
               }
             }
             // Skip marking as "Sequence Finished" if we processed a response
@@ -156,6 +181,12 @@ export async function runAgent(userId: string): Promise<ProcessResult> {
         console.error(`Error processing prospect ${prospect.id}:`, error);
         result.errors.push(`${prospect.contactEmail}: ${error.message}`);
       }
+    }
+
+    // Check if no new responses were detected
+    if (checkedForResponses && !foundNewResponses && result.emailsSent === 0 && result.responsesAnalyzed === 0 && result.meetingsScheduled === 0) {
+      result.noNewResponses = true;
+      result.message = 'No new responses detected for these prospects in your email inbox. Please wait a few seconds and try again.';
     }
 
     // Log activity
@@ -259,7 +290,8 @@ async function sendInitialEmail(user: any, prospect: any) {
     user.id,
     undefined,
     undefined,
-    prospect.id // Add prospectId for pixel tracking
+    prospect.id, // Add prospectId for pixel tracking
+    user.name || '' // Sender name for "From" header
   );
 
   const threadLink = `https://mail.google.com/mail/u/0/#thread/${result.threadId}`;
@@ -371,7 +403,8 @@ async function sendFollowUpEmail(user: any, prospect: any, config: any) {
     user.id,
     prospect.lastMessageId, // In-Reply-To header
     prospect.lastMessageId,  // References header
-    prospect.id // Add prospectId for pixel tracking
+    prospect.id, // Add prospectId for pixel tracking
+    user.name || '' // Sender name for "From" header
   );
 
   // Wait a moment before final state
@@ -399,8 +432,9 @@ async function sendFollowUpEmail(user: any, prospect: any, config: any) {
 
 /**
  * Check if there's a new response in the thread
+ * Returns: { hasNewResponse: boolean, isManualReply: boolean }
  */
-async function checkForNewResponse(user: any, prospect: any): Promise<boolean> {
+async function checkForNewResponse(user: any, prospect: any): Promise<{ hasNewResponse: boolean; isManualReply: boolean }> {
   try {
     const messages = await getThreadMessages(
       user.googleAccessToken,
@@ -409,7 +443,7 @@ async function checkForNewResponse(user: any, prospect: any): Promise<boolean> {
       user.id
     );
 
-    if (messages.length === 0) return false;
+    if (messages.length === 0) return { hasNewResponse: false, isManualReply: false };
 
     // Get the last message
     const lastMessage = messages[messages.length - 1];
@@ -417,12 +451,21 @@ async function checkForNewResponse(user: any, prospect: any): Promise<boolean> {
       h.name.toLowerCase() === 'from'
     )?.value || '';
 
+    // Check if last message is from the user (manual reply)
+    const userEmail = user.email?.toLowerCase() || '';
+    const isFromUser = from.toLowerCase().includes(userEmail);
+    
+    if (isFromUser) {
+      console.log(`Last message is from user (manual reply): ${from}`);
+      return { hasNewResponse: true, isManualReply: true };
+    }
+
     // Check if last message is from prospect (not from us)
     const isFromProspect = from.toLowerCase().includes(prospect.contactEmail.toLowerCase());
     
     if (!isFromProspect) {
       console.log(`Last message is not from prospect ${prospect.contactEmail}, it's from: ${from}`);
-      return false;
+      return { hasNewResponse: false, isManualReply: false };
     }
 
     // Check if we've already processed this response by looking at the prospect status
@@ -433,15 +476,15 @@ async function checkForNewResponse(user: any, prospect: any): Promise<boolean> {
     
     if (alreadyProcessedStatuses.some(s => currentStatus?.includes(s))) {
       console.log(`Response already processed for prospect ${prospect.contactEmail}, current status: ${currentStatus}`);
-      return false;
+      return { hasNewResponse: false, isManualReply: false };
     }
 
     console.log(`Found new response from prospect ${prospect.contactEmail}`);
-    return true;
+    return { hasNewResponse: true, isManualReply: false };
 
   } catch (error) {
     console.error('Error checking for new response:', error);
-    return false;
+    return { hasNewResponse: false, isManualReply: false };
   }
 }
 
@@ -487,9 +530,13 @@ async function analyzeProspectResponse(user: any, prospect: any): Promise<boolea
   }
 
   const body = await getMessageBody(lastMessage);
-  console.log(`Response body: ${body.substring(0, 200)}...`);
+  console.log(`Response body (raw): ${body.substring(0, 200)}...`);
   
-  const classification = await classifyResponse(body);
+  // Clean the email body to extract ONLY the prospect's actual response
+  const cleanedBody = cleanEmailForAI(body);
+  console.log(`Response body (cleaned): ${cleanedBody}`);
+  
+  const classification = await classifyResponse(cleanedBody);
   console.log(`AI Classification: ${classification.category}`);
 
   let newStatus = '';
@@ -560,106 +607,84 @@ async function analyzeProspectResponse(user: any, prospect: any): Promise<boolea
  */
 async function scheduleProspectMeeting(user: any, prospect: any, config: any, sequence: any) {
   try {
+    console.log(`\n🚀 === STARTING MEETING SCHEDULING PROCESS ===`);
+    console.log(`👤 User: ${user.name} (${user.email})`);
+    console.log(`👥 Prospect: ${prospect.contactName} (${prospect.contactEmail})`);
+    
+    // Usar configuración del usuario (o default a Ciudad de México)
     const workStartHour = parseInt(config.searchStartTime?.split(':')[0] || '9');
     const workEndHour = parseInt(config.searchEndTime?.split(':')[0] || '17');
+    const timezone = config.timezone || 'America/Mexico_City';
+    const workingDays = config.workingDays?.split(',') || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 
-    // Start search 24 hours from now
-    let searchStartDate = new Date();
+    console.log(`⚙️ Configuration:`);
+    console.log(`   🌍 Timezone: ${timezone}`);
+    console.log(`   🕐 Working hours: ${workStartHour}:00 - ${workEndHour}:00`);
+    console.log(`   📅 Working days: ${workingDays.join(', ')}`);
+
+    // Buscar desde mañana (24 horas desde ahora)
+    const searchStartDate = new Date();
     searchStartDate.setHours(searchStartDate.getHours() + 24);
     
-    // Round to next 30-minute slot
-    const minutes = searchStartDate.getMinutes();
-    if (minutes > 30) {
-      searchStartDate.setHours(searchStartDate.getHours() + 1);
-      searchStartDate.setMinutes(0, 0, 0);
-    } else if (minutes > 0) {
-      searchStartDate.setMinutes(30, 0, 0);
-    }
-
     const searchEndDate = new Date(searchStartDate);
-    searchEndDate.setDate(searchEndDate.getDate() + 30);
+    searchEndDate.setDate(searchEndDate.getDate() + 30);  // Buscar próximos 30 días
 
-    // Parse working days from config
-    const workingDays = typeof config.workingDays === 'string' 
-      ? config.workingDays.split(',').map(d => d.trim())
-      : config.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-    
+    console.log(`📅 Search window: ${searchStartDate.toISOString()} to ${searchEndDate.toISOString()}`);
+
+    // Obtener slots disponibles
     const availableSlots = await getAvailableSlots(
       user.googleAccessToken,
       searchStartDate,
       searchEndDate,
       workStartHour,
       workEndHour,
-      config.timezone || 'America/Mexico_City',
+      timezone,
       user.googleRefreshToken,
       workingDays
     );
 
-    // Parse preferred days from the prospect's response
+    console.log(`📊 Total available slots found: ${availableSlots.length}`);
+
+    if (availableSlots.length === 0) {
+      throw new Error('No available slots found in the next 30 days');
+    }
+
+    // Parsear preferencias del prospecto
     const preferredDays = prospect.suggestedDays ? 
       prospect.suggestedDays.split(',').map((d: string) => d.trim().toLowerCase()) : 
       undefined;
     
-    // Handle timezone conversion if the prospect specified a different timezone
-    let convertedTime = prospect.suggestedTime;
-    let dayAdjustment = 0;
+    const preferredTime = prospect.suggestedTime || undefined;
+    const preferredTimezone = prospect.suggestedTimezone || undefined; // Timezone mencionado por prospecto
     
-    if (prospect.suggestedTime && prospect.suggestedTimezone) {
-      const userTimezone = config.timezone || 'America/Mexico_City';
-      convertedTime = convertTimezone(
-        prospect.suggestedTime,
-        prospect.suggestedTimezone,
-        userTimezone
-      );
-      dayAdjustment = getTimezoneDayAdjustment(
-        prospect.suggestedTime,
-        prospect.suggestedTimezone,
-        userTimezone
-      );
-      
-      console.log(`🌍 Timezone conversion:`, {
-        original: `${prospect.suggestedTime} ${prospect.suggestedTimezone}`,
-        converted: `${convertedTime} ${userTimezone}`,
-        dayAdjustment: dayAdjustment
-      });
-    }
-    
-    console.log(`📅 Scheduling meeting with preferences:`, {
-      raw_suggestedDays: prospect.suggestedDays,
-      raw_suggestedTime: prospect.suggestedTime,
-      raw_suggestedTimezone: prospect.suggestedTimezone,
-      raw_suggestedWeek: prospect.suggestedWeek,
-      parsed_preferredDays: preferredDays,
-      parsed_preferredTime: convertedTime || prospect.suggestedTime,
-      parsed_preferredWeek: prospect.suggestedWeek,
-      dayAdjustment: dayAdjustment,
-      availableSlotsCount: availableSlots.length,
-      first5Slots: availableSlots.slice(0, 5).map(s => s.toISOString())
+    console.log(`🎯 Prospect preferences:`, {
+      days: preferredDays || 'none',
+      time: preferredTime || 'none',
+      timezone: preferredTimezone || 'none (will use user timezone)'
     });
     
+    // Encontrar mejor slot (con conversión automática si el prospecto mencionó otro timezone)
     const selectedSlot = findNextAvailableSlot(
       availableSlots,
       preferredDays,
-      convertedTime || prospect.suggestedTime,
-      prospect.suggestedWeek
+      preferredTime,
+      undefined,
+      timezone,
+      preferredTimezone // Pasar timezone mencionado por prospecto
     );
     
-    console.log(`✅ Selected slot: ${selectedSlot ? selectedSlot.toISOString() : 'None'}`);
-
     if (!selectedSlot) {
-      throw new Error('No available slots found');
+      throw new Error('Could not find a suitable slot');
     }
 
-    const endTime = new Date(selectedSlot.getTime() + 30 * 60000);
+    console.log(`✅ Selected slot (UTC): ${selectedSlot.toISOString()}`);
+    console.log(`✅ Selected slot (${timezone}): ${selectedSlot.toLocaleString('es-MX', { timeZone: timezone })}`);
 
-    // Use sequence meeting templates if available, otherwise fall back to config
+    const endTime = new Date(selectedSlot.getTime() + 30 * 60000);  // 30 minutos después
+
+    // Obtener título y descripción de la reunión
     const meetingTitle = sequence?.meetingTitle || config.meetingTitle || '${companyName} & ${yourName}';
     const meetingDescription = sequence?.meetingDescription || config.meetingDescription || '';
-    
-    console.log(`📅 Using meeting template for prospect ${prospect.contactEmail}:`);
-    console.log(`   Sequence: ${sequence?.name || 'None'}`);
-    console.log(`   Title: ${meetingTitle}`);
-    console.log(`   Description: ${meetingDescription}`);
 
     const title = replaceTemplateVariables(meetingTitle, {
       externalCid: prospect.externalCid || '',
@@ -679,13 +704,7 @@ async function scheduleProspectMeeting(user: any, prospect: any, config: any, se
       yourName: user.name
     });
 
-    // Get OAuth client with automatic token refresh
-    const oauthClient = await getOAuth2ClientWithRefresh(
-      user.googleAccessToken,
-      user.googleRefreshToken,
-      user.id
-    );
-
+    // Programar la reunión
     const meetingResult = await scheduleMeeting({
       accessToken: user.googleAccessToken,
       refreshToken: user.googleRefreshToken,
@@ -693,20 +712,22 @@ async function scheduleProspectMeeting(user: any, prospect: any, config: any, se
       title: title,
       description: description,
       startTime: selectedSlot,
-      endTime: endTime
+      endTime: endTime,
+      userTimezone: timezone
     });
 
-    console.log(`📧 Meeting scheduled successfully! Google Calendar will send the automatic invitation.`);
-    console.log(`🔗 Meeting link: ${meetingResult.meetLink}`);
+    console.log(`🎉 Meeting scheduled successfully!`);
+    console.log(`🔗 Meet link: ${meetingResult.meetLink}`);
+    console.log(`🔗 Calendar link: ${meetingResult.htmlLink}`);
 
-    // Update prospect status and save meeting time
+    // Actualizar estado del prospecto
     await storage.updateProspect(prospect.id, {
       status: '✅ Meeting Scheduled 🗓️',
       sendSequence: false,
-      meetingTime: selectedSlot // Save the actual meeting time
+      meetingTime: selectedSlot
     });
     
-    // Emit WebSocket updates
+    // Emitir actualizaciones por WebSocket
     emitProspectStatusChange(user.id, prospect.id, '✅ Meeting Scheduled 🗓️');
     emitMeetingScheduled(user.id, prospect.id, {
       meetingTime: selectedSlot,
@@ -714,19 +735,68 @@ async function scheduleProspectMeeting(user: any, prospect: any, config: any, se
       contactEmail: prospect.contactEmail
     });
 
-    // Log activity
+    // Registrar actividad
     await storage.createActivityLog({
       userId: user.id,
       prospectId: prospect.id,
       action: 'Meeting Scheduled (Auto)',
-      detail: `Meeting created at ${selectedSlot.toISOString()}. Google Calendar sent automatic invitation to ${prospect.contactEmail}.`
+      detail: `Meeting created at ${selectedSlot.toLocaleString('es-MX', { timeZone: timezone })}. Google Calendar sent invitation to ${prospect.contactEmail}.`
     });
 
+    console.log(`✅ === MEETING SCHEDULING COMPLETED ===\n`);
+
   } catch (error: any) {
-    console.error('Error scheduling meeting:', error);
+    console.error('❌ === MEETING SCHEDULING FAILED ===');
+    console.error('Error:', error.message);
+    console.error('Stack:', error.stack);
     await storage.updateProspect(prospect.id, {
       status: `❌ Scheduling Error: ${error.message}`
     });
+  }
+}
+
+/**
+ * Stop sequences for other prospects from the same company
+ * Called when a prospect from a company responds with interest
+ */
+async function stopSequencesForSameCompany(userId: string, companyName: string, excludeProspectId: string) {
+  try {
+    console.log(`\n🏢 Stopping sequences for other prospects from company: ${companyName}`);
+    
+    // Get all prospects from the same user and company (excluding the one that responded)
+    const allProspects = await storage.getProspectsByUser(userId);
+    const sameCompanyProspects = allProspects.filter(p => 
+      p.companyName && 
+      p.companyName.toLowerCase() === companyName.toLowerCase() &&
+      p.id !== excludeProspectId &&
+      p.sendSequence === true // Only stop active sequences
+    );
+    
+    console.log(`   Found ${sameCompanyProspects.length} other prospects from ${companyName} with active sequences`);
+    
+    // Stop sequences for each prospect
+    for (const prospect of sameCompanyProspects) {
+      await storage.updateProspect(prospect.id, {
+        status: '🏢 Sequence Ended - Company Contacted',
+        sendSequence: false
+      });
+      
+      emitProspectStatusChange(userId, prospect.id, '🏢 Sequence Ended - Company Contacted');
+      
+      await storage.createActivityLog({
+        userId,
+        prospectId: prospect.id,
+        action: 'Sequence Stopped (Company Contacted)',
+        detail: `Sequence stopped because another prospect from ${companyName} responded with interest`
+      });
+      
+      console.log(`   ✅ Stopped sequence for ${prospect.contactName} (${prospect.contactEmail})`);
+    }
+    
+    console.log(`✅ Stopped sequences for ${sameCompanyProspects.length} prospects from ${companyName}\n`);
+    
+  } catch (error) {
+    console.error('Error stopping sequences for same company:', error);
   }
 }
 

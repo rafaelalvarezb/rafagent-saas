@@ -117,27 +117,6 @@ export const campaigns = pgTable("campaigns", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Mailboxes (multiple Gmail accounts per user)
-export const mailboxes = pgTable("mailboxes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  email: text("email").notNull(),
-  displayName: text("display_name"),
-  googleAccessToken: text("google_access_token"),
-  googleRefreshToken: text("google_refresh_token"),
-  googleTokenExpiry: timestamp("google_token_expiry"),
-  isActive: boolean("is_active").default(true),
-  dailySendLimit: integer("daily_send_limit").default(25),
-  emailsSentToday: integer("emails_sent_today").default(0),
-  lastResetDate: timestamp("last_reset_date"),
-  warmupStatus: text("warmup_status").default('not_started'), // 'not_started', 'warming', 'ready', 'paused'
-  warmupStartDate: timestamp("warmup_start_date"),
-  warmupCurrentDay: integer("warmup_current_day").default(0),
-  reputationScore: real("reputation_score").default(0), // 0-100
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -176,12 +155,6 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   createdAt: true,
 });
 
-export const insertMailboxSchema = createInsertSchema(mailboxes).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -203,6 +176,3 @@ export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
-
-export type Mailbox = typeof mailboxes.$inferSelect;
-export type InsertMailbox = z.infer<typeof insertMailboxSchema>;

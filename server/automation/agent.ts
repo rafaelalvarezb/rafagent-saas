@@ -452,10 +452,33 @@ async function checkForNewResponse(user: any, prospect: any): Promise<{ hasNewRe
     )?.value || '';
 
     // Check if last message is from the user (manual reply)
+    // BUT: Don't mark as manual reply if this is the initial email we just sent
+    // Only mark as manual reply if there's a message from user AFTER the initial email
     const userEmail = user.email?.toLowerCase() || '';
     const isFromUser = from.toLowerCase().includes(userEmail);
     
     if (isFromUser) {
+      // Check if this is the initial email (first message in thread)
+      // If it's the first message, it's not a manual reply, it's the automated initial email
+      if (messages.length === 1) {
+        console.log(`Last message is initial email from user (not manual reply): ${from}`);
+        return { hasNewResponse: false, isManualReply: false };
+      }
+      
+      // Check if the last message timestamp is after the lastContactDate
+      // If lastContactDate is null or very recent (within last minute), it's likely the automated email
+      const lastContactDate = prospect.lastContactDate;
+      const messageDate = lastMessage.internalDate ? new Date(parseInt(lastMessage.internalDate)) : null;
+      
+      if (lastContactDate && messageDate) {
+        const timeDiff = messageDate.getTime() - new Date(lastContactDate).getTime();
+        // If message was sent within 2 minutes of lastContactDate, it's likely the automated email
+        if (timeDiff < 2 * 60 * 1000) {
+          console.log(`Last message is automated email (sent ${timeDiff}ms after lastContactDate): ${from}`);
+          return { hasNewResponse: false, isManualReply: false };
+        }
+      }
+      
       console.log(`Last message is from user (manual reply): ${from}`);
       return { hasNewResponse: true, isManualReply: true };
     }
