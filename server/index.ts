@@ -60,7 +60,14 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    // In production, only serve static files if they exist (for Vercel)
+    // For Railway (backend only), skip static file serving
+    try {
+      serveStatic(app);
+    } catch (error) {
+      // If static files don't exist (Railway backend only), that's OK
+      log("⚠️  Static files not found - running as API-only backend");
+    }
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT

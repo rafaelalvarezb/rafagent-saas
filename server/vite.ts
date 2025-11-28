@@ -68,12 +68,12 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
-
+  const distPath = path.resolve(import.meta.dirname, "..", "dist");
+  
+  // Check if dist directory exists, if not, skip static serving (Railway backend only)
   if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+    log("⚠️  dist directory not found - running as API-only backend");
+    return;
   }
 
   app.use(express.static(distPath));
