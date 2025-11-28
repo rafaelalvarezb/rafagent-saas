@@ -13,6 +13,7 @@ import Dashboard from "@/pages/Dashboard";
 import Prospects from "@/pages/Prospects";
 import Templates from "@/pages/Templates";
 import Configuration from "@/pages/Configuration";
+import Mailboxes from "@/pages/Mailboxes";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
@@ -98,6 +99,13 @@ function App() {
                <RequireAuth>
                  <AuthenticatedLayout>
                    <Configuration />
+                 </AuthenticatedLayout>
+               </RequireAuth>
+             </Route>
+             <Route path="/mailboxes">
+               <RequireAuth>
+                 <AuthenticatedLayout>
+                   <Mailboxes />
                  </AuthenticatedLayout>
                </RequireAuth>
              </Route>

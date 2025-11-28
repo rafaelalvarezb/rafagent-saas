@@ -7,6 +7,7 @@ import { sendEmail, getThreadMessages, getMessageBody } from "./services/gmail";
 import { classifyResponse, replaceTemplateVariables } from "./services/ai";
 import { getAvailableSlots, findNextAvailableSlot, scheduleMeeting } from "./services/calendar";
 import { getAuthUrl, getTokensFromCode, getUserInfo } from "./auth";
+import { getMailboxAuthUrl, createMailboxFromOAuth } from "./services/mailbox";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { runAgent } from "./automation/agent";
 import { createDefaultTemplates, createDefaultUserConfig } from "./automation/defaultTemplates";
@@ -82,6 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/google/callback", async (req, res) => {
     try {
       const code = req.query.code as string;
+      const state = req.query.state as string; // 'add_mailbox' or undefined
       
       if (!code) {
         return res.status(400).send('Authorization code not provided');
@@ -101,7 +103,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error('Email not provided by Google');
       }
 
-      // Find or create user in database
+      // If state is 'add_mailbox', handle mailbox addition
+      if (state === 'add_mailbox') {
+        // This requires the user to be authenticated, so we need to get userId from session/token
+        // For now, we'll redirect to frontend with code and let frontend handle it
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        res.redirect(`${frontendUrl}/mailboxes?code=${code}&action=add_mailbox`);
+        return;
+      }
+
+      // Find or create user in database (normal login flow)
       let user = await storage.getUserByEmail(userInfo.email);
       let isNewUser = false;
       
@@ -1639,6 +1650,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errors: errors.length,
         errorDetails: errors
       });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== MAILBOXES =====
+  // Get all mailboxes for current user
+  app.get("/api/mailboxes", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req)!;
+      const mailboxes = await storage.getMailboxesByUser(userId);
+      res.json(mailboxes);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get OAuth URL for adding a new mailbox
+  app.get("/api/mailboxes/auth", requireAuth, async (req, res) => {
+    try {
+      const authUrl = getMailboxAuthUrl();
+      res.json({ authUrl });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // OAuth callback for adding mailbox (handled via frontend)
+  app.post("/api/mailboxes/add", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req)!;
+      const { code } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ error: "Authorization code not provided" });
+      }
+
+      const mailbox = await createMailboxFromOAuth(userId, code);
+      res.json({ success: true, mailbox });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update mailbox
+  app.patch("/api/mailboxes/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req)!;
+      const mailboxId = req.params.id;
+      
+      const mailbox = await storage.getMailbox(mailboxId);
+      if (!mailbox) {
+        return res.status(404).json({ error: "Mailbox not found" });
+      }
+
+      if (mailbox.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const updates: any = {};
+      if (req.body.displayName !== undefined) updates.displayName = req.body.displayName;
+      if (req.body.isActive !== undefined) updates.isActive = req.body.isActive;
+      if (req.body.dailySendLimit !== undefined) updates.dailySendLimit = req.body.dailySendLimit;
+      if (req.body.warmupStatus !== undefined) updates.warmupStatus = req.body.warmupStatus;
+
+      const updated = await storage.updateMailbox(mailboxId, updates);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete mailbox
+  app.delete("/api/mailboxes/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req)!;
+      const mailboxId = req.params.id;
+      
+      const mailbox = await storage.getMailbox(mailboxId);
+      if (!mailbox) {
+        return res.status(404).json({ error: "Mailbox not found" });
+      }
+
+      if (mailbox.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await storage.deleteMailbox(mailboxId);
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

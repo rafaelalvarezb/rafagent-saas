@@ -18,7 +18,8 @@ import {
   FileText, 
   BarChart3,
   Settings,
-  LogOut 
+  LogOut,
+  Inbox
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -40,6 +41,11 @@ const menuItems = [
     title: "Templates",
     url: "/templates",
     icon: FileText,
+  },
+  {
+    title: "Mailboxes",
+    url: "/mailboxes",
+    icon: Inbox,
   },
   {
     title: "Configuration",

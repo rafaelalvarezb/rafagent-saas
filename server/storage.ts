@@ -1,13 +1,14 @@
 import { db } from "./db";
 import {
-  users, userConfig, prospects, sequences, templates, activityLogs, campaigns,
+  users, userConfig, prospects, sequences, templates, activityLogs, campaigns, mailboxes,
   type User, type InsertUser,
   type UserConfig, type InsertUserConfig,
   type Prospect, type InsertProspect,
   type Sequence, type InsertSequence,
   type Template, type InsertTemplate,
   type ActivityLog, type InsertActivityLog,
-  type Campaign, type InsertCampaign
+  type Campaign, type InsertCampaign,
+  type Mailbox, type InsertMailbox
 } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 
@@ -60,6 +61,16 @@ export interface IStorage {
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: string, campaign: Partial<InsertCampaign>): Promise<Campaign | undefined>;
   deleteCampaign(id: string): Promise<boolean>;
+
+  // Mailboxes
+  getMailbox(id: string): Promise<Mailbox | undefined>;
+  getMailboxesByUser(userId: string): Promise<Mailbox[]>;
+  getActiveMailboxesByUser(userId: string): Promise<Mailbox[]>;
+  createMailbox(mailbox: InsertMailbox): Promise<Mailbox>;
+  updateMailbox(id: string, mailbox: Partial<InsertMailbox>): Promise<Mailbox | undefined>;
+  deleteMailbox(id: string): Promise<boolean>;
+  getNextAvailableMailbox(userId: string): Promise<Mailbox | undefined>;
+  resetDailyEmailCounts(): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -284,6 +295,95 @@ export class DbStorage implements IStorage {
   async deleteCampaign(id: string): Promise<boolean> {
     const result = await db.delete(campaigns).where(eq(campaigns.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Mailboxes
+  async getMailbox(id: string): Promise<Mailbox | undefined> {
+    const result = await db.select().from(mailboxes).where(eq(mailboxes.id, id));
+    return result[0];
+  }
+
+  async getMailboxesByUser(userId: string): Promise<Mailbox[]> {
+    return db.select().from(mailboxes)
+      .where(eq(mailboxes.userId, userId))
+      .orderBy(desc(mailboxes.createdAt));
+  }
+
+  async getActiveMailboxesByUser(userId: string): Promise<Mailbox[]> {
+    return db.select().from(mailboxes)
+      .where(
+        and(
+          eq(mailboxes.userId, userId),
+          eq(mailboxes.isActive, true)
+        )
+      )
+      .orderBy(desc(mailboxes.createdAt));
+  }
+
+  async createMailbox(mailbox: InsertMailbox): Promise<Mailbox> {
+    const result = await db.insert(mailboxes).values(mailbox).returning();
+    return result[0];
+  }
+
+  async updateMailbox(id: string, mailbox: Partial<InsertMailbox>): Promise<Mailbox | undefined> {
+    const updateData = {
+      ...mailbox,
+      updatedAt: new Date()
+    };
+    const result = await db.update(mailboxes).set(updateData).where(eq(mailboxes.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteMailbox(id: string): Promise<boolean> {
+    const result = await db.delete(mailboxes).where(eq(mailboxes.id, id)).returning();
+    return result.length > 0;
+  }
+
+  /**
+   * Get next available mailbox for sending (hasn't reached daily limit)
+   * Rotates through active mailboxes
+   */
+  async getNextAvailableMailbox(userId: string): Promise<Mailbox | undefined> {
+    const activeMailboxes = await this.getActiveMailboxesByUser(userId);
+    
+    // Filter mailboxes that haven't reached daily limit
+    const availableMailboxes = activeMailboxes.filter(
+      m => (m.emailsSentToday || 0) < (m.dailySendLimit || 25)
+    );
+
+    if (availableMailboxes.length === 0) {
+      return undefined;
+    }
+
+    // Simple round-robin: get the one with least emails sent today
+    return availableMailboxes.reduce((prev, curr) => 
+      (prev.emailsSentToday || 0) < (curr.emailsSentToday || 0) ? prev : curr
+    );
+  }
+
+  /**
+   * Reset daily email counts for all mailboxes (should be called daily via cron)
+   */
+  async resetDailyEmailCounts(): Promise<void> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get all mailboxes that need reset (lastResetDate is not today)
+    const allMailboxes = await db.select().from(mailboxes);
+    
+    for (const mailbox of allMailboxes) {
+      const lastReset = mailbox.lastResetDate ? new Date(mailbox.lastResetDate) : null;
+      const needsReset = !lastReset || lastReset < today;
+
+      if (needsReset) {
+        await db.update(mailboxes)
+          .set({
+            emailsSentToday: 0,
+            lastResetDate: today
+          })
+          .where(eq(mailboxes.id, mailbox.id));
+      }
+    }
   }
 
   // Helper: Clone a sequence with all its templates
